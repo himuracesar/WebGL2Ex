@@ -1,0 +1,32 @@
+><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGL Init</title>
+</head>
+<body onload="start();">
+    <canvas width="800" height="600" id="webGLcanvas"></canvas>
+
+    <script type="text/javascript">
+        var gl;
+        var canvas;
+
+        function start(){
+            canvas = document.getElementById("webGLcanvas");
+            gl = canvas.getContext("webgl2");
+
+            if(!gl){
+                console.log("WebGL 2 can't start");
+            }            
+
+            console.log(gl.getParameter(gl.VERSION));
+            console.log(gl.getParameter(gl.SHADING_LANGUAGE_VERSION));
+
+            gl.clearColor(0.0, 0.0, 0.0, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+        }
+    </script>
+</body>
+</html>

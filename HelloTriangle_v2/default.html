@@ -1,0 +1,159 @@
+><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGL - Hello Triangle</title>
+</head>
+<body onload="start();">
+    <canvas width="800" height="600" id="webGLcanvas"></canvas>
+
+    <script type="text/javascript">
+        var gl;
+        var canvas;
+
+        var vertexShaderSrc = `#version 300 es
+            in vec3 in_position;
+            in vec4 in_color;
+
+            out vec4 out_color;
+
+            void main(){
+                gl_Position = vec4(in_position.x, in_position.y, in_position.z, 1.0);
+                out_color = in_color;
+            }
+        `;
+
+        var fragmentShaderSrc = `#version 300 es
+            precision mediump float;
+
+            in vec4 out_color;
+
+            out vec4 color;
+
+            void main(){
+                //color = vec4(1.0, 0.0, 0.0, 1.0);
+                color = out_color;
+            }
+        `;
+
+        var program;
+
+        var vbo;
+
+        //Position attribute from vertex shader
+        var inPositionLoc;
+        //Color attribute from vertex shader
+        var inColorLoc;
+
+        function start(){
+            canvas = document.getElementById("webGLcanvas");
+            gl = canvas.getContext("webgl2");
+
+            if(!gl){
+                console.log("WebGL 2 can't start");
+            }            
+
+            console.log(gl.getParameter(gl.VERSION));
+            console.log(gl.getParameter(gl.SHADING_LANGUAGE_VERSION));
+
+            var vertexShader = gl.createShader(gl.VERTEX_SHADER);
+            if(!vertexShader){
+                console.log("It couldn't to create the vertex shader");
+                return;
+            }
+
+            gl.shaderSource(vertexShader, vertexShaderSrc);
+            gl.compileShader(vertexShader);
+
+            var compiled = gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS);
+            if(!compiled){
+                var error = gl.getShaderInfoLog(vertexShader);
+                console.log("It couldn't compile the vertex shader : " + error);
+
+                return;
+            }
+
+            var fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+            if(!fragmentShader){
+                console.log("It couldn't to create the fragment shader");
+                return;
+            }
+
+            gl.shaderSource(fragmentShader, fragmentShaderSrc);
+            gl.compileShader(fragmentShader);
+
+            compiled = gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS);
+            if(!compiled){
+                var error = gl.getShaderInfoLog(fragmentShader);
+                console.log("It couldn't compile the fragment shader : " + error);
+
+                return;
+            }
+
+            program = gl.createProgram();
+            if(!program){
+                console.log("It couldn't create the program");
+                return;
+            }
+
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+
+            gl.deleteShader(vertexShader);
+            gl.deleteShader(fragmentShader);
+
+            gl.useProgram(program);
+
+            inPositionLoc = gl.getAttribLocation(program, "in_position");
+            if(inPositionLoc < 0){
+                console.log("It couldn't to find in_position in shaders");
+                return;
+            }
+
+            inColorLoc = gl.getAttribLocation(program, "in_color");
+            if(inColorLoc < 0){
+                console.log("It couldn't to find in_position in shaders");
+                return;
+            }
+
+            vbo = gl.createBuffer(vbo);
+            if(!vbo){
+                console.log("Error to create vertex buffer object");
+                return;
+            }
+
+            // position (2), color (4)
+            var mesh = new Float32Array([
+                 0.0,  0.5, 1.0, 0.0, 0.0, 1.0,
+                -0.5, -0.5, 0.0, 1.0, 0.0, 1.0,
+                 0.5, -0.5, 0.0, 0.0, 1.0, 1.0
+            ]);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+            gl.bufferData(gl.ARRAY_BUFFER, mesh, gl.STATIC_DRAW);
+
+            gl.clearColor(0.0, 0.0, 0.0, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            /*
+                attribute in vertex shader
+                number of elements in the vector
+                gl.FLOAT
+                gl.FALSE
+                stride: 6 Number of elements in a row 2 by position + 4 by color
+                offset: In the color = 2 by postiion 
+            */
+            gl.vertexAttribPointer(inPositionLoc, 2, gl.FLOAT, gl.FALSE, 6 * Float32Array.BYTES_PER_ELEMENT, 0);
+            gl.enableVertexAttribArray(inPositionLoc);
+
+            gl.vertexAttribPointer(inColorLoc, 4, gl.FLOAT, gl.FALSE, 6 * Float32Array.BYTES_PER_ELEMENT, 2 * Float32Array.BYTES_PER_ELEMENT);
+            gl.enableVertexAttribArray(inColorLoc);
+
+            gl.drawArrays(gl.TRIANGLES, 0, 3);
+        }
+    </script>
+</body>
+</html>

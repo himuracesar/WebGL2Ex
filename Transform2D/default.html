@@ -1,0 +1,236 @@
+><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGL - Hello Triangle</title>
+
+    <script type="text/javascript" src="m3.js"></script>
+</head>
+<body onload="start();">
+    <canvas width="800" height="600" id="webGLcanvas"></canvas>
+
+    <script type="text/javascript">
+        (function() {
+            var requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame || window.msRequestAnimationFrame;
+            window.requestAnimationFrame = requestAnimationFrame;
+        })();
+
+        var gl;
+        var canvas;
+
+        var vertexShaderSrc = `#version 300 es
+            in vec2 in_position;
+            in vec4 in_color;
+
+            uniform mat3 u_mProj;
+            uniform mat3 u_mModel;
+
+            out vec4 out_color;
+
+            void main(){
+                vec3 posH = u_mProj * u_mModel * vec3(in_position, 1.0);
+                gl_Position = vec4(posH, 1.0);
+                out_color = in_color;
+            }
+        `;
+
+        var fragmentShaderSrc = `#version 300 es
+            precision mediump float;
+
+            in vec4 out_color;
+
+            out vec4 color;
+
+            void main(){
+                color = out_color;
+            }
+        `;
+
+        //Edge of triangle
+        var edge = 75.0;
+        //Rotation
+        var speedRotation = 0.02;
+        var angleRotation = 0;
+        //Scale
+        var intervaleScale = [0.4, 1.5];
+        var scale = 1.0;
+        var speedScale = 0.02;
+        //Translate
+        var radio = 100.0;
+        var angle = 0.0;
+        var speedAngle = 0.01;
+
+        var program;
+
+        var vbo;
+
+        //Position attribute from vertex shader
+        var inPositionLoc;
+        //Color attribute from vertex shader
+        var inColorLoc;
+        //Uniform Matrix Projection
+        var u_mProjLoc;
+
+        var u_mModel;
+
+        function start(){
+            canvas = document.getElementById("webGLcanvas");
+            gl = canvas.getContext("webgl2");
+
+            if(!gl){
+                console.log("WebGL 2 can't start");
+            }            
+
+            console.log(gl.getParameter(gl.VERSION));
+            console.log(gl.getParameter(gl.SHADING_LANGUAGE_VERSION));
+
+            var vertexShader = gl.createShader(gl.VERTEX_SHADER);
+            if(!vertexShader){
+                console.log("It couldn't to create the vertex shader");
+                return;
+            }
+
+            gl.shaderSource(vertexShader, vertexShaderSrc);
+            gl.compileShader(vertexShader);
+
+            var compiled = gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS);
+            if(!compiled){
+                var error = gl.getShaderInfoLog(vertexShader);
+                console.log("It couldn't compile the vertex shader : " + error);
+
+                return;
+            }
+
+            var fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+            if(!fragmentShader){
+                console.log("It couldn't to create the fragment shader");
+                return;
+            }
+
+            gl.shaderSource(fragmentShader, fragmentShaderSrc);
+            gl.compileShader(fragmentShader);
+
+            compiled = gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS);
+            if(!compiled){
+                var error = gl.getShaderInfoLog(fragmentShader);
+                console.log("It couldn't compile the fragment shader : " + error);
+
+                return;
+            }
+
+            program = gl.createProgram();
+            if(!program){
+                console.log("It couldn't create the program");
+                return;
+            }
+
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+
+            //In this point the shaders were load on GPU, so they can be deleted from CPU
+            gl.deleteShader(vertexShader);
+            gl.deleteShader(fragmentShader);
+
+            gl.useProgram(program);
+
+            inPositionLoc = gl.getAttribLocation(program, "in_position");
+            if(inPositionLoc < 0){
+                console.log("It couldn't to find in_position in shaders");
+                return;
+            }
+
+            inColorLoc = gl.getAttribLocation(program, "in_color");
+            if(inColorLoc < 0){
+                console.log("It couldn't to find in_color in shaders");
+                return;
+            }
+
+            u_mProjLoc = gl.getUniformLocation(program, "u_mProj");
+            u_mModel = gl.getUniformLocation(program, "u_mModel");
+
+            vbo = gl.createBuffer(vbo);
+            if(!vbo){
+                console.log("Error to create vertex buffer object");
+                return;
+            }
+
+            // position (2), color (4)
+            var mesh = new Float32Array([
+                 0.0,   edge, 1.0, 0.0, 0.0, 1.0,
+                -edge, -edge, 0.0, 1.0, 0.0, 1.0,
+                 edge, -edge, 0.0, 0.0, 1.0, 1.0
+            ]);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+            gl.bufferData(gl.ARRAY_BUFFER, mesh, gl.STATIC_DRAW);
+
+            render();
+        }
+
+        function render(){
+            gl.clearColor(0.0, 0.0, 0.0, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            console.log("Render");
+
+            /*
+                attribute in vertex shader
+                number of elements in the vector
+                gl.FLOAT
+                gl.FALSE
+                stride: 6 Number of elements in a row 2 by position + 4 by color
+                offset: In the color = 2 by postiion 
+            */
+            gl.vertexAttribPointer(inPositionLoc, 2, gl.FLOAT, gl.FALSE, 6 * Float32Array.BYTES_PER_ELEMENT, 0);
+            gl.enableVertexAttribArray(inPositionLoc);
+
+            gl.vertexAttribPointer(inColorLoc, 4, gl.FLOAT, gl.FALSE, 6 * Float32Array.BYTES_PER_ELEMENT, 2 * Float32Array.BYTES_PER_ELEMENT);
+            gl.enableVertexAttribArray(inColorLoc);
+
+            var mProj = m3.projection(canvas.clientWidth, canvas.clientHeight);
+            gl.uniformMatrix3fv(u_mProjLoc, false, mProj);
+
+            angleRotation += speedRotation;
+
+            var mModel = m3.translation(canvas.clientWidth / 4, 150.0);
+            mModel = m3.multiply(mModel, m3.rotation(angleRotation));
+
+            gl.uniformMatrix3fv(u_mModel, false, mModel);
+
+            gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+            angle += speedAngle;
+            var dx = Math.cos(angle) * radio;
+            var dy = Math.sin(angle) * radio;
+
+            mModel = m3.translation(canvas.clientWidth / 2 + dx, 450.0 + dy);
+            gl.uniformMatrix3fv(u_mModel, false, mModel);
+
+            gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+            if(speedScale > 0)
+                if(scale < intervaleScale[1])
+                    scale += speedScale;
+                else
+                    speedScale = -speedScale;
+            else
+                if(scale > intervaleScale[0])
+                        scale += speedScale;
+                    else
+                        speedScale = -speedScale;
+            
+            mModel = m3.translation(canvas.clientWidth / 4 * 3, 150.0);
+            mModel = m3.multiply(mModel, m3.scaling(scale, scale));
+
+            gl.uniformMatrix3fv(u_mModel, false, mModel);
+
+            gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+            requestAnimationFrame(render);
+        }
+    </script>
+</body>
+</html>
