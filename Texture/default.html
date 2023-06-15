@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGL - Hello Cube</title>
+
+    <script type="text/javascript" src="m4.js"></script>
+</head>
+<body onload="start();">
+    <canvas width="800" height="600" id="webGLcanvas"></canvas>
+
+    <script type="text/javascript">
+        (function() {
+            var requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame || window.msRequestAnimationFrame;
+            window.requestAnimationFrame = requestAnimationFrame;
+        })();
+
+        var gl;
+        var canvas;
+
+        var vertexShaderSrc = `#version 300 es
+            in vec3 in_position;
+            in vec4 in_color;
+            in vec2 in_texCoord;
+
+            uniform mat4 u_mProj;
+            uniform mat4 u_mView;
+            uniform mat4 u_mModel;
+
+            out vec4 o_color;
+            out vec2 o_texCoord;
+
+            void main(){
+                gl_Position = u_mProj * u_mView * u_mModel * vec4(in_position, 1.0);
+                o_color = in_color;
+                o_texCoord = in_texCoord;
+            }
+        `;
+
+        var fragmentShaderSrc = `#version 300 es
+            precision mediump float;
+
+            in vec4 o_color;
+            in vec2 o_texCoord;
+
+            uniform sampler2D u_sampler;
+
+            out vec4 color;
+
+            void main(){
+                color = texture(u_sampler, o_texCoord);
+            }
+        `;
+
+        var program;
+
+        var vbo;
+        var indexBuffer;
+
+        //Position attribute from vertex shader
+        var inPositionLoc;
+        //Color attribute from vertex shader
+        var inColorLoc;
+        //Texture coords
+        var inTexCoord;
+        //Uniform Matrix Projection
+        var u_mProjLoc;
+        //Uniform Matrix Projection
+        var u_mViewLoc;
+        var u_mModelLoc;
+
+        var aspect = 0;
+        const zNear = 0.1;
+        const zFar = 2000;
+        var fieldOfViewRadians = 60 * Math.PI / 180;
+
+        var yRotation = 0.0;
+        var speedRotation = 0.01;
+
+        var texture;
+
+        function start(){
+            canvas = document.getElementById("webGLcanvas");
+            gl = canvas.getContext("webgl2");
+
+            if(!gl){
+                console.log("WebGL 2 can't start");
+            }            
+
+            console.log(gl.getParameter(gl.VERSION));
+            console.log(gl.getParameter(gl.SHADING_LANGUAGE_VERSION));
+
+            var vertexShader = gl.createShader(gl.VERTEX_SHADER);
+            if(!vertexShader){
+                console.log("It couldn't to create the vertex shader");
+                return;
+            }
+
+            gl.shaderSource(vertexShader, vertexShaderSrc);
+            gl.compileShader(vertexShader);
+
+            var compiled = gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS);
+            if(!compiled){
+                var error = gl.getShaderInfoLog(vertexShader);
+                console.log("It couldn't compile the vertex shader : " + error);
+                return;
+            }
+
+            var fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+            if(!fragmentShader){
+                console.log("It couldn't to create the fragment shader");
+                return;
+            }
+
+            gl.shaderSource(fragmentShader, fragmentShaderSrc);
+            gl.compileShader(fragmentShader);
+
+            compiled = gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS);
+            if(!compiled){
+                var error = gl.getShaderInfoLog(fragmentShader);
+                console.log("It couldn't compile the fragment shader : " + error);
+
+                return;
+            }
+
+            program = gl.createProgram();
+            if(!program){
+                console.log("It couldn't create the program");
+                return;
+            }
+
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+
+            gl.deleteShader(vertexShader);
+            gl.deleteShader(fragmentShader);
+
+            gl.useProgram(program);
+
+            inPositionLoc = gl.getAttribLocation(program, "in_position");
+            if(inPositionLoc < 0){
+                console.log("It couldn't to find in_position in shaders");
+                return;
+            }
+
+            inColorLoc = gl.getAttribLocation(program, "in_color");
+            if(inColorLoc < 0){
+                console.log("It couldn't to find in_color in shaders");
+                return;
+            }
+
+            inTexCoord = gl.getAttribLocation(program, "in_texCoord");
+            if(inTexCoord < 0){
+                console.log("It couldn't to find in_texCoord in shaders");
+                return;
+            }
+
+            u_mProjLoc = gl.getUniformLocation(program, "u_mProj");
+            u_mViewLoc = gl.getUniformLocation(program, "u_mView");
+            u_mModelLoc = gl.getUniformLocation(program, "u_mModel");
+
+            vbo = gl.createBuffer(vbo);
+            if(!vbo){
+                console.log("Error to create vertex buffer object");
+                return;
+            }
+
+            indexBuffer = gl.createBuffer();
+            if(!indexBuffer){
+                console.log("Error to create index buffer object");
+                return;
+            }
+
+            // position (3), color (4), texcoord (2)
+            var mesh = new Float32Array([
+                //Front
+                -1.0, -1.0,  1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, //0
+                 1.0, -1.0,  1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0, //1
+                 1.0,  1.0,  1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, //2
+                -1.0,  1.0,  1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, //3
+                //Right
+                1.0, -1.0,  1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, //4
+                1.0, -1.0, -1.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0, //5
+                1.0,  1.0, -1.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, //6
+                1.0,  1.0,  1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, //7
+                //Back
+                 1.0, -1.0, -1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, //8
+                -1.0, -1.0, -1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, //9
+                -1.0,  1.0, -1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0, //10
+                 1.0,  1.0, -1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, //11
+                //Left
+                -1.0, -1.0, -1.0, 1.0, 1.0, 0.0, 1.0, 0.0, 1.0, //12
+                -1.0, -1.0,  1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, //13
+                -1.0,  1.0,  1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 0.0, //14
+                -1.0,  1.0, -1.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, //15
+                //Top
+                -1.0,  1.0,  1.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, //16
+                 1.0,  1.0,  1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, //17
+                 1.0,  1.0, -1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0, //18
+                -1.0,  1.0, -1.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, //19
+                //Bottom
+                -1.0, -1.0, -1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, //20
+                 1.0, -1.0, -1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, //21
+                 1.0, -1.0,  1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, //22
+                -1.0, -1.0,  1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0  //23
+            ]);
+
+            var indices = [
+                //Front
+                0, 1, 2, 0, 2, 3,
+                //Right
+                4, 5, 6, 4, 6, 7,
+                //Back
+                8, 9, 10, 8, 10, 11,
+                //Left
+                12, 13, 14, 12, 14, 15,
+                //Top
+                16, 17, 18, 16, 18, 19,
+                //Bottom
+                20, 21, 22, 20, 22, 23
+            ];
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+            gl.bufferData(gl.ARRAY_BUFFER, mesh, gl.STATIC_DRAW);
+
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+
+            aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+
+            texture = gl.createTexture();
+            var image = new Image();
+            image.onload = function(){
+                loadTexture(image, texture);
+            }
+
+            image.src = "WebGL_Logo.png";
+
+            render();
+        }
+
+        function loadTexture(image, texture2D){
+            gl.bindTexture(gl.TEXTURE_2D, texture2D);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.bindTexture(gl.TEXTURE_2D, null);
+            is_end_load_texture = true;
+        }
+
+        function render(){
+            gl.clearColor(0.0, 0.0, 0.0, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT);// | gl.DEPTH_BUFFER_BIT);
+
+            gl.enable(gl.DEPTH_TEST);
+            gl.enable(gl.CULL_FACE);
+
+            gl.depthFunc(gl.LEQUAL);
+            gl.cullFace(gl.BACK);
+
+            console.log("Render");
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+
+            /*
+                attribute in vertex shader
+                number of elements in the vector
+                gl.FLOAT
+                gl.FALSE
+                stride: 7 Number of elements in a row 3 by position + 4 by color
+                offset: In the color = 3 by postiion 
+            */
+            gl.vertexAttribPointer(inPositionLoc, 3, gl.FLOAT, gl.FALSE, 9 * Float32Array.BYTES_PER_ELEMENT, 0);
+            gl.enableVertexAttribArray(inPositionLoc);
+
+            gl.vertexAttribPointer(inColorLoc, 4, gl.FLOAT, gl.FALSE, 9 * Float32Array.BYTES_PER_ELEMENT, 3 * Float32Array.BYTES_PER_ELEMENT);
+            gl.enableVertexAttribArray(inColorLoc);
+
+            gl.vertexAttribPointer(inTexCoord, 2, gl.FLOAT, gl.FALSE, 9 * Float32Array.BYTES_PER_ELEMENT, 7 * Float32Array.BYTES_PER_ELEMENT);
+            gl.enableVertexAttribArray(inTexCoord);
+
+            var mProj = m4.perspective(fieldOfViewRadians, aspect, zNear, zFar);
+            gl.uniformMatrix4fv(u_mProjLoc, false, mProj);
+
+            var mView = m4.translation(0.0, 0.0, 8.0);
+            mView = m4.inverse(mView);
+            gl.uniformMatrix4fv(u_mViewLoc, false, mView);
+
+            yRotation += speedRotation;
+
+            var mModel = m4.translation(0.0, 0.0, 0.0);
+            mModel = m4.multiply(mModel, m4.yRotation(yRotation));
+            mModel = m4.multiply(mModel, m4.xRotation(yRotation));
+            //mModel = m4.multiply(mModel, m4.scaling(10.0, 10.0, 10.0));
+            gl.uniformMatrix4fv(u_mModelLoc, false, mModel);
+
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.uniform1i(gl.getUniformLocation(program, "u_sampler"), 0);
+
+            gl.drawElements(gl.TRIANGLES, 36, gl.UNSIGNED_SHORT, 0);
+
+            requestAnimationFrame(render);
+        }
+    </script>
+</body>
+</html>
