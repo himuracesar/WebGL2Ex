@@ -110,6 +110,7 @@
 
             var fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
             if(!fragmentShader){
+                var error = gl.getShaderInfoLog(fragmentShader);
                 console.log("It couldn't to create the fragment shader");
                 return;
             }
