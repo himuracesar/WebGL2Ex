@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGL - WebGL Engine Demo</title>
+
+    <script type="text/javascript" src="engine/WebGL-Engine.js"></script>
+    <script type="text/javascript" src="engine/Camera.js"></script>
+    <script type="text/javascript" src="engine/m4.js"></script>
+    <script type="text/javascript" src="engine/pipeline/Pipeline.js"></script>
+    <script type="text/javascript" src="engine/pipeline/StandardPipeline.js"></script>
+    <script type="text/javascript" src="engine/pipeline/TexturePipeline.js"></script>
+    <script type="text/javascript" src="engine/KeyCode.js"></script>
+</head>
+<body onload="start();">
+    <canvas width="800" height="600" id="webGLcanvas"></canvas>
+
+    <script type="text/javascript">
+        var gl;
+        var canvas;
+
+        var texturePipeline;
+
+        var sponza;
+
+        var camera;
+
+        function start(){
+            canvas = document.getElementById("webGLcanvas");
+            gl = webGLengine.initWebGL(canvas);
+
+            camera = new Camera(gl);
+            camera.setPosition([0.0, 10.0, 8.0]);
+            camera.setSpeed(4.5);
+            camera.setFarPlane(3000);
+
+            texturePipeline = new TexturePipeline(gl);
+
+            window.addEventListener("keydown", onKeyDown.bind(this));
+            window.addEventListener("keyup", onKeyUp.bind(this));
+
+            sponza = webGLengine.createMeshByObjFile(gl, "models/sponza/sponza.obj");
+
+            render();
+        }
+
+        function input(){
+            if(keypress[KeyCode.W])
+                camera.moveForward(1);
+            if(keypress[KeyCode.S])
+                camera.moveForward(-1);
+            if(keypress[KeyCode.A])
+                camera.strafe(-1);
+            if(keypress[KeyCode.D])
+                camera.strafe(1);
+            if(keypress[KeyCode.Left])
+                camera.yaw(0.01);
+            if(keypress[KeyCode.Right])
+                camera.yaw(-0.01);
+            if(keypress[KeyCode.Up])
+                camera.pitch(0.01);
+            if(keypress[KeyCode.Down])
+                camera.pitch(-0.01);
+        }
+
+        function render(){
+            gl.clearColor(0.4, 0.6, 0.9, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            gl.enable(gl.DEPTH_TEST);
+            gl.enable(gl.CULL_FACE);
+
+            gl.depthFunc(gl.LEQUAL);
+            gl.cullFace(gl.BACK);
+
+            console.log("Render");
+
+            input();
+
+            texturePipeline.use();
+            gl.uniformMatrix4fv(texturePipeline.getUniformLocation("u_mProj"), false, camera.getProjectionMatrix());
+            gl.uniformMatrix4fv(texturePipeline.getUniformLocation("u_mView"), false, camera.getViewMatrix());
+
+            sponza.then(function(staticMesh){
+                staticMesh.render(texturePipeline);
+            });
+
+            requestAnimationFrame(render);
+        }
+    </script>
+</body>
+</html>

@@ -24,6 +24,7 @@ class StaticMesh {
         this.xRotation = 0.0;
         this.zRotation = 0.0;
         this.materials = [];
+        this.textures = [];
     }
 
     /**
@@ -63,6 +64,19 @@ class StaticMesh {
                 offset += value;
             }
             
+            var iSampler = 0;
+            while(pipeline.getUniformLocation("u_sampler" + iSampler) !== undefined && this.getNumTextures() > 0){
+                if(this.textures[this.materials[this.submeshes[i].materialIndex].diffuseTextureIndex].getTexture() != null){
+                    gl.activeTexture(gl.TEXTURE0 + iSampler);
+                    gl.bindTexture(gl.TEXTURE_2D, this.textures[this.materials[this.submeshes[i].materialIndex].diffuseTextureIndex].getTexture());
+                    gl.uniform1i(gl.getUniformLocation(pipeline.getProgram(), "u_sampler" + iSampler), 0);
+
+                    iSampler++;
+                }
+                else
+                    break;
+            }
+            
             if(this.submeshes[i].getNumIndices() > 0){
                 gl.drawElements(gl.TRIANGLES, this.submeshes[i].getNumIndices(), gl.UNSIGNED_SHORT, 0);
             }
@@ -75,6 +89,7 @@ class StaticMesh {
             }
         }
 
+        gl.bindTexture(gl.TEXTURE_2D, null);
         gl.bindVertexArray(null);
         gl.useProgram(null);
     }
@@ -162,7 +177,27 @@ class StaticMesh {
         this.materials.push(material);
     }
 
+    /**
+     * Get the number of materials of the model
+     * @returns {int} Number of materials of the model
+     */
     getNumMaterials() {
         return this.materials.length;
+    }
+
+    /**
+     * Add a new texture
+     * @param {Texture} texture 
+     */
+    addTexture(texture){
+        this.textures.push(texture);
+    }
+
+    /**
+     * Get the total textures of the model
+     * @returns Number of the textures
+     */
+    getNumTextures(){
+        return this.textures.length;
     }
 }

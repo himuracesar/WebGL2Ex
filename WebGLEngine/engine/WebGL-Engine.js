@@ -23,6 +23,7 @@ function include(file) {
 include("engine/StaticMesh.js");
 include("engine/Submesh.js");
 include("engine/Material.js");
+include("engine/texture/Texture.js");
 
 (function(root, factory){
     if (typeof define === 'function' && define.amd) {
@@ -156,7 +157,7 @@ include("engine/Material.js");
     }
 
     /**
-     * Angle in radians
+     * Radians to degree
      * @param {float} r 
      * @returns Angle in degree
      */
@@ -413,10 +414,11 @@ include("engine/Material.js");
     return materials;
   }
 
-  /*@Autor : Martin Melendez Blas
-  @ permite parsear el texto de lib*/
+  /**
+   * Parse the materials from the obj file
+   * @Author : Martin Melendez Blas
+   */
 function parseLib(textLib) {
-
 
   var material = null;
   var materials = [];
@@ -700,7 +702,6 @@ function parseLib(textLib) {
 
     var dicmat = {};
     for(var m in materials){
-      //debugger;
       const mat = materials[m];
 
       var material = new Material();
@@ -714,11 +715,17 @@ function parseLib(textLib) {
       material.setOpticalDensity(mat.Ni);
 
       dicmat[material.getName()] = mesh.getNumMaterials();
+    
+      if(mat.map_Kd !== undefined) {
+        var texture = createTexture(gl, basePath + mat.map_Kd, true);
+        
+        material.setDiffuseTextureIndex(mesh.getNumTextures());
+        mesh.addTexture(texture);
+      }
 
       mesh.addMaterial(material);
     }
-    debugger;
-
+    
     /** Load geometry */
     gl.bindVertexArray(mesh.getVao());
 
@@ -749,13 +756,52 @@ function parseLib(textLib) {
 
       mesh.addSubmesh(submesh);
     }
-    debugger;
+    
     gl.bindVertexArray(null);
 
     var vertexFormat = { "in_position" : 3, "in_texcoord" : 2, "in_normal" : 3 };
     mesh.setVertexFormat(vertexFormat);
-
+    debugger;
     return mesh;
+  }
+
+  /**
+   * Create a texture
+   * @param {WebGL2RenderingContext} gl Context of WebGL to render
+   * @param {string} filename Path + file name 
+   * @param {boolean} flipY True or false to flip the texture in Y
+   * @returns 
+   */
+  function createTexture(gl, filename, flipY){
+    var texture = new Texture();
+
+    var image = new Image();
+    image.src = filename;
+    image.onload = function(){
+      var gltex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D , gltex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, flipY);
+      //gl.generateMipmap(gl.TEXTURE_2D);
+      gl.bindTexture(gl.TEXTURE_2D , null);
+
+      texture.setTexture(gltex);
+    }
+    
+    return texture;
+  }
+
+  function ImageProcess(filename){
+    return new Promise((resolve, reject) => {
+        let img = new Image()
+        img.onload = () => resolve(img)
+        img.onerror = reject
+        img.src = filename
+    });
   }
 
     return {
@@ -773,7 +819,8 @@ function parseLib(textLib) {
         createBuffer : createBuffer,
         //Object Engine
         createMesh : createMesh,
-        createMeshByObjFile : createMeshByObjFile
+        createMeshByObjFile : createMeshByObjFile,
+        createTexture : createTexture
     }
 
     })

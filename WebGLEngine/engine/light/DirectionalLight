@@ -1,0 +1,21 @@
+/**
+ * Directional Light
+ * @author César Himura
+ */
+class DirectionalLight {
+    
+    constructor(){
+        this.color = [1.0, 1.0, 1.0];
+	    this.direction = [1.0, -1.0, 1.0];
+	    this.enabled = true;
+	    this.intensity = 1.0;
+    }
+
+    /**
+     * Get the color of the light
+     * @return {Vector4} Color of the light
+     */
+    getColor(){
+        return this.color;
+    }
+}
