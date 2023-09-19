@@ -706,10 +706,10 @@ function parseLib(textLib) {
 
       var material = new Material();
       material.setName(m.toString());
-      material.setAmbientColor(mat.Ka);
-      material.setDiffuseColor(mat.Kd);
-      material.setSpecularColor(mat.Ks);
-      material.setEmissiveColor(mat.Ke);
+      material.setAmbientColor([mat.Ka[0], mat.Ka[1], mat.Ka[2], 1.0]);
+      material.setDiffuseColor([mat.Kd[0], mat.Kd[1], mat.Kd[2], 1.0]);
+      material.setSpecularColor([mat.Ks[0], mat.Ks[1], mat.Ks[2], 1.0]);
+      material.setEmissiveColor([mat.Ke[0], mat.Ke[1], mat.Ke[2], 1.0]);
       material.setTransparency(mat.d)
       material.setSpecularPower(mat.Ns);
       material.setOpticalDensity(mat.Ni);
@@ -761,7 +761,7 @@ function parseLib(textLib) {
 
     var vertexFormat = { "in_position" : 3, "in_texcoord" : 2, "in_normal" : 3 };
     mesh.setVertexFormat(vertexFormat);
-    debugger;
+    
     return mesh;
   }
 

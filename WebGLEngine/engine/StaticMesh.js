@@ -63,7 +63,19 @@ class StaticMesh {
 
                 offset += value;
             }
+
+            //Material
+            /*gl.bindBufferBase(
+                gl.UNIFORM_BUFFER,
+                0,
+                this.materials[this.submeshes[i].materialIndex].getBuffer());*/
+
+            //console.log(gl.getUniformBlockIndex(pipeline.getProgram(), 'u_material'));
+
             
+            gl.bindBuffer(gl.UNIFORM_BUFFER, this.materials[this.submeshes[i].materialIndex].getBuffer());
+            gl.uniformBlockBinding(pipeline.getProgram(), gl.getUniformBlockIndex(pipeline.getProgram(), 'u_material'), 0);
+    
             var iSampler = 0;
             while(pipeline.getUniformLocation("u_sampler" + iSampler) !== undefined && this.getNumTextures() > 0){
                 if(this.textures[this.materials[this.submeshes[i].materialIndex].diffuseTextureIndex].getTexture() != null){
@@ -131,7 +143,7 @@ class StaticMesh {
 
     /**
      * Get the position
-     * @returns the position
+     * @returns {Vector3} the position
      */
     getPosition(){
         return this.position;
@@ -195,7 +207,7 @@ class StaticMesh {
 
     /**
      * Get the total textures of the model
-     * @returns Number of the textures
+     * @returns {int} Number of the textures
      */
     getNumTextures(){
         return this.textures.length;

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGL - WebGL Engine Phong Shading</title>
+
+    <script type="text/javascript" src="engine/WebGL-Engine.js"></script>
+    <script type="text/javascript" src="engine/Camera.js"></script>
+    <script type="text/javascript" src="engine/m4.js"></script>
+    <script type="text/javascript" src="engine/pipeline/Pipeline.js"></script>
+    <script type="text/javascript" src="engine/pipeline/PhongShadingPipeline.js"></script>
+    <script type="text/javascript" src="engine/KeyCode.js"></script>
+    <script type="text/javascript" src="engine/light/DirectionalLight.js"></script>
+</head>
+<body onload="start();">
+    <canvas width="800" height="600" id="webGLcanvas"></canvas>
+
+    <script type="text/javascript">
+        var gl;
+        var canvas;
+
+        var phongPipeline;
+
+        var garfield;
+        var odie;
+
+        var camera;
+
+        //var yRotation = 0.0;
+        //var speedRotation = 0.01;
+
+        var directionalLight;
+
+        function start(){
+            canvas = document.getElementById("webGLcanvas");
+            gl = webGLengine.initWebGL(canvas);
+
+            camera = new Camera(gl);
+            camera.setPosition([0.0, 0.0, 8.0]);
+            camera.setSpeed(0.5);
+
+            phongPipeline = new PhongShadingPipeline(gl);
+
+            directionalLight = new DirectionalLight();
+            //directionalLight.setColor([1.0, 0.0, 0.0, 1.0]);
+            //directionalLight.setDirection([1.0, -1.0, 0.0, 0.0]);
+            document.getElementById("directionalLight_dir_x").value = directionalLight.getDirection()[0];
+            document.getElementById("directionalLight_dir_y").value = directionalLight.getDirection()[1];
+            document.getElementById("directionalLight_dir_z").value = directionalLight.getDirection()[2];
+            document.getElementById("directionalLight_dir_w").value = directionalLight.getDirection()[3];
+
+            garfield = webGLengine.createMeshByObjFile(gl, "models/garfield/garfield.obj");
+            odie = webGLengine.createMeshByObjFile(gl, "models/odie/odie.obj");
+
+            window.addEventListener("keydown", onKeyDown.bind(this));
+            window.addEventListener("keyup", onKeyUp.bind(this));
+
+            render();
+        }
+
+        function input(){
+            if(keypress[KeyCode.W])
+                camera.moveForward(1);
+            if(keypress[KeyCode.S])
+                camera.moveForward(-1);
+            if(keypress[KeyCode.A])
+                camera.strafe(-1);
+            if(keypress[KeyCode.D])
+                camera.strafe(1);
+            if(keypress[KeyCode.Left])
+                camera.yaw(0.01);
+            if(keypress[KeyCode.Right])
+                camera.yaw(-0.01);
+            if(keypress[KeyCode.Up])
+                camera.pitch(0.01);
+            if(keypress[KeyCode.Down])
+                camera.pitch(-0.01);
+        }
+
+        function gui(){
+            //alert("---- " + document.getElementById("directionalLight_dir_x").value + " ----");
+            directionalLight.setDirection([
+                document.getElementById("directionalLight_dir_x").value,
+                document.getElementById("directionalLight_dir_y").value,
+                document.getElementById("directionalLight_dir_z").value,
+                document.getElementById("directionalLight_dir_w").value,
+            ]);
+        }
+
+        function cameraInfo(){
+            document.getElementById("camera_pos_x").value = camera.getPosition()[0];
+            document.getElementById("camera_pos_y").value = camera.getPosition()[1];
+            document.getElementById("camera_pos_z").value = camera.getPosition()[2];
+        }
+
+        function render(){
+            gl.clearColor(0.4, 0.6, 0.9, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            gl.enable(gl.DEPTH_TEST);
+            gl.enable(gl.CULL_FACE);
+
+            gl.depthFunc(gl.LEQUAL);
+            gl.cullFace(gl.BACK);
+
+            console.log("Render");
+
+            //gui();
+            input();
+            cameraInfo();
+
+            phongPipeline.use();
+            gl.uniformMatrix4fv(phongPipeline.getUniformLocation("u_mProj"), false, camera.getProjectionMatrix());
+            gl.uniformMatrix4fv(phongPipeline.getUniformLocation("u_mView"), false, camera.getViewMatrix());
+            gl.uniform3fv(phongPipeline.getUniformLocation("u_camera_position"), camera.getPosition());
+            
+            //gl.bindBufferBase(gl.UNIFORM_BUFFER, 0/*phongPipeline.getLightsIndex()*/, directionalLight.getBuffer());
+            gl.bindBuffer(gl.UNIFORM_BUFFER, directionalLight.getBuffer());
+            gl.uniformBlockBinding(phongPipeline.getProgram(), gl.getUniformBlockIndex(phongPipeline.getProgram(), 'u_directional_light'), phongPipeline.getLightsIndex());
+
+            garfield.then(function(staticMesh){
+                staticMesh.render(phongPipeline);
+            });
+
+            odie.then(function(staticMesh){
+                staticMesh.setPosition([80.0, 0.0, 0.0]);
+                staticMesh.render(phongPipeline);
+            });
+
+            requestAnimationFrame(render);
+        }
+    </script>
+
+    <div>
+        <h3>Directional Light</h3>
+        <p>Direction</p>
+        <input type="text" name="directionalLight_dir_x" id="directionalLight_dir_x" onChange="gui();">
+        <input type="text" name="directionalLight_dir_y" id="directionalLight_dir_y" onChange="gui();">
+        <input type="text" name="directionalLight_dir_z" id="directionalLight_dir_z" onChange="gui();">
+        <input type="text" name="directionalLight_dir_w" id="directionalLight_dir_w" onChange="gui();">
+    </div>
+
+    <div>
+        <h3>Camera</h3>
+        <p>Position</p>
+        <input type="text" name="camera_pos_x" id="camera_pos_x" onChange="gui();">
+        <input type="text" name="camera_pos_y" id="camera_pos_y" onChange="gui();">
+        <input type="text" name="camera_pos_z" id="camera_pos_z" onChange="gui();">
+    </div>
+</body>
+</html>

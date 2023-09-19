@@ -1,3 +1,7 @@
+/**
+ * Texture pipeline does not include lights
+ * @author César Himura
+ */
 class TexturePipeline extends Pipeline {
 
     constructor(gl){

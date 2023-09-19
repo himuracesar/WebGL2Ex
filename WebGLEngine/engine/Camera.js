@@ -55,6 +55,14 @@ class Camera {
 
         return m4.inverse(mView);
     }
+    
+    /**
+     * Get the position
+     * @returns {Vector3} position
+     */
+    getPosition(){
+        return this.position;
+    }
 
     /**
      * Set the position

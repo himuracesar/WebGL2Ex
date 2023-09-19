@@ -1,7 +1,7 @@
 # Material file for garfield.obj
 
 newmtl mesh0012mat
-	Ns 0
+	Ns 1
 	d 1
 	illum 2
 	Kd 1.0 1.0 1.0
@@ -10,7 +10,7 @@ newmtl mesh0012mat
 	map_Kd t0012_0.png
 
 newmtl mesh0019mat
-	Ns 0
+	Ns 1
 	d 1
 	illum 2
 	Kd 1.0 1.0 1.0
@@ -19,7 +19,7 @@ newmtl mesh0019mat
 	map_Kd t0019_0.png
 
 newmtl mesh0021mat
-	Ns 0
+	Ns 1
 	d 1
 	illum 2
 	Kd 1.0 1.0 1.0
