@@ -13,6 +13,7 @@
     <script type="text/javascript" src="engine/pipeline/PhongShadingPipeline.js"></script>
     <script type="text/javascript" src="engine/KeyCode.js"></script>
     <script type="text/javascript" src="engine/light/DirectionalLight.js"></script>
+    <script type="text/javascript" src="engine/light/PointLight.js"></script>
 </head>
 <body onload="start();">
     <canvas width="800" height="600" id="webGLcanvas"></canvas>
@@ -28,10 +29,8 @@
 
         var camera;
 
-        //var yRotation = 0.0;
-        //var speedRotation = 0.01;
-
         var directionalLight;
+        var pointLight;
 
         function start(){
             canvas = document.getElementById("webGLcanvas");
@@ -44,13 +43,29 @@
             phongPipeline = new PhongShadingPipeline(gl);
 
             directionalLight = new DirectionalLight();
-            //directionalLight.setColor([1.0, 0.0, 0.0, 1.0]);
-            //directionalLight.setDirection([1.0, -1.0, 0.0, 0.0]);
             document.getElementById("directionalLight_dir_x").value = directionalLight.getDirection()[0];
             document.getElementById("directionalLight_dir_y").value = directionalLight.getDirection()[1];
             document.getElementById("directionalLight_dir_z").value = directionalLight.getDirection()[2];
             document.getElementById("directionalLight_dir_w").value = directionalLight.getDirection()[3];
+            document.getElementById("colorDirectionalLight").value = webGLengine.rgbToHex(directionalLight.getColor());
+            document.getElementById("intens_dirLight").value = directionalLight.getIntensity();
+            document.getElementById("chkDirectionalLight").checked = directionalLight.isEnabled();
 
+            pointLight = new PointLight();
+            pointLight.setPosition([0.0, 50.0, 50.0]);
+            pointLight.setRange(100.0);
+            pointLight.setIndexBuffer(2);
+            document.getElementById("pointLight_x").value = pointLight.getPosition()[0];
+            document.getElementById("pointLight_y").value = pointLight.getPosition()[1];
+            document.getElementById("pointLight_z").value = pointLight.getPosition()[2];
+            document.getElementById("colorPointLight").value = webGLengine.rgbToHex(pointLight.getColor());
+            document.getElementById("intens_pointLight").value = pointLight.getIntensity();
+            document.getElementById("range_pointLight").value = pointLight.getRange();
+            document.getElementById("enabled_pointLight").checked = pointLight.isEnabled();
+            document.getElementById("kc").value = pointLight.getConstantAttenuation();
+            document.getElementById("kl").value = pointLight.getLinealAttenuation();
+            document.getElementById("kq").value = pointLight.getQuadraticAttenuation();
+            
             garfield = webGLengine.createMeshByObjFile(gl, "models/garfield/garfield.obj");
             odie = webGLengine.createMeshByObjFile(gl, "models/odie/odie.obj");
 
@@ -80,13 +95,30 @@
         }
 
         function gui(){
-            //alert("---- " + document.getElementById("directionalLight_dir_x").value + " ----");
             directionalLight.setDirection([
                 document.getElementById("directionalLight_dir_x").value,
                 document.getElementById("directionalLight_dir_y").value,
                 document.getElementById("directionalLight_dir_z").value,
                 document.getElementById("directionalLight_dir_w").value,
             ]);
+            
+            directionalLight.setColor(webGLengine.hexToRgb(document.getElementById("colorDirectionalLight").value));
+            directionalLight.setEnabled(document.getElementById("chkDirectionalLight").checked);
+            directionalLight.setIntensity(document.getElementById("intens_dirLight").value);
+            
+            pointLight.setPosition([
+                document.getElementById("pointLight_x").value,
+                document.getElementById("pointLight_y").value,
+                document.getElementById("pointLight_z").value
+            ]);
+            
+            pointLight.setColor(webGLengine.hexToRgb(document.getElementById("colorPointLight").value));
+            pointLight.setEnabled(document.getElementById("enabled_pointLight").checked);
+            pointLight.setIntensity(document.getElementById("intens_pointLight").value);
+            pointLight.setRange(document.getElementById("range_pointLight").value);
+            pointLight.setConstantAttenuation(document.getElementById("kc").value);
+            pointLight.setLinealAttenuation(document.getElementById("kl").value);
+            pointLight.setQuadraticAttenuation(document.getElementById("kq").value);
         }
 
         function cameraInfo(){
@@ -107,7 +139,6 @@
 
             console.log("Render");
 
-            //gui();
             input();
             cameraInfo();
 
@@ -118,7 +149,10 @@
             
             //gl.bindBufferBase(gl.UNIFORM_BUFFER, 0/*phongPipeline.getLightsIndex()*/, directionalLight.getBuffer());
             gl.bindBuffer(gl.UNIFORM_BUFFER, directionalLight.getBuffer());
-            gl.uniformBlockBinding(phongPipeline.getProgram(), gl.getUniformBlockIndex(phongPipeline.getProgram(), 'u_directional_light'), phongPipeline.getLightsIndex());
+            gl.uniformBlockBinding(phongPipeline.getProgram(), gl.getUniformBlockIndex(phongPipeline.getProgram(), 'u_directional_light'), directionalLight.getIndexBuffer());
+
+            gl.bindBuffer(gl.UNIFORM_BUFFER, pointLight.getBuffer());
+            gl.uniformBlockBinding(phongPipeline.getProgram(), gl.getUniformBlockIndex(phongPipeline.getProgram(), 'u_point_light'), pointLight.getIndexBuffer());
 
             garfield.then(function(staticMesh){
                 staticMesh.render(phongPipeline);
@@ -140,14 +174,36 @@
         <input type="text" name="directionalLight_dir_y" id="directionalLight_dir_y" onChange="gui();">
         <input type="text" name="directionalLight_dir_z" id="directionalLight_dir_z" onChange="gui();">
         <input type="text" name="directionalLight_dir_w" id="directionalLight_dir_w" onChange="gui();">
+        <p>Color <input type="color" id="colorDirectionalLight" onchange="gui();"></input> </p>
+        <p>Intensity <input type="text" id="intens_dirLight" onchange="gui();"> </p>
+        <p>Enable <input type="checkbox" id="chkDirectionalLight" onChange="gui();" /></p>
+    </div>
+
+    <div>
+        <h3>Point Light</h3>
+        <p>
+            Position
+            <input type="text" name="pointLight_x" id="pointLight_x" onChange="gui();">
+            <input type="text" name="pointLight_y" id="pointLight_y" onChange="gui();">
+            <input type="text" name="pointLight_z" id="pointLight_z" onChange="gui();">
+        </p>
+        <p>Color <input type="color" id="colorPointLight" onchange="gui();"></input> </p>
+        <p>Intensity <input type="text" id="intens_pointLight" onchange="gui();"> </p>
+        <p>Range <input type="text" id="range_pointLight" onchange="gui();"> </p>
+        <p>Constant Attenuation <input type="text" id="kc" onchange="gui();"> </p>
+        <p>Linear Attenuation<input type="text" id="kl" onchange="gui();"> </p>
+        <p>Quadratic Attenuation<input type="text" id="kq" onchange="gui();"> </p>
+        <p>Enable <input type="checkbox" id="enabled_pointLight" onChange="gui();" /></p>
     </div>
 
     <div>
         <h3>Camera</h3>
-        <p>Position</p>
-        <input type="text" name="camera_pos_x" id="camera_pos_x" onChange="gui();">
-        <input type="text" name="camera_pos_y" id="camera_pos_y" onChange="gui();">
-        <input type="text" name="camera_pos_z" id="camera_pos_z" onChange="gui();">
+        <p>
+            Position
+            <input type="text" name="camera_pos_x" id="camera_pos_x" onChange="gui();">
+            <input type="text" name="camera_pos_y" id="camera_pos_y" onChange="gui();">
+            <input type="text" name="camera_pos_z" id="camera_pos_z" onChange="gui();">
+        </p>
     </div>
 </body>
 </html>

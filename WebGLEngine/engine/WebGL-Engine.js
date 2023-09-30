@@ -795,6 +795,61 @@ function parseLib(textLib) {
     return texture;
   }
 
+  /**
+   * Converts from RGB color to Hexadecimal color with format #rrggbb
+   * @param {Vector4} color The alpha is not taken account for the conversion
+   * @return {string} The color in hexadecimal format
+   */
+  function rgbToHex(color){
+    var stack = [];
+    
+    for(var i = 0; i < color.length - 1; i++){
+      var c = color[i] * 255;
+      
+      while(c > 0){
+        stack.push(c % 16);
+        c = Math.floor(c / 16);
+      }
+    }
+
+    var colorHex = "#";
+    for(var i = stack.length - 1; i >= 0; i--){
+      if(stack[i] >= 10)
+        colorHex += String.fromCharCode("A".charCodeAt(0) + stack[i] - 10);
+      else
+        colorHex += stack[i].toString();
+    }
+
+    return colorHex;
+  }
+
+  /**
+   * Converts color in Hexadecimal format to color in 32 bits for shaders
+   * @param {string} colorHex 
+   * @returns {Vector4} Color in 32 bits
+   */
+  function hexToRgb(colorHex){
+    var color = [];
+    var base = [16, 1];
+    for(var i = 1; i < colorHex.length; i += 2){
+      var cc = colorHex.substring(i, i + 2);
+      var colorf = 0;
+      for(var j = cc.length - 1; j >= 0; j--){
+        if(cc.charCodeAt(j) >= "a".charCodeAt(0))
+          colorf += base[j] * (cc.charCodeAt(j) - "a".charCodeAt(0) + 10);
+        else if(cc.charCodeAt(j) >= "A".charCodeAt(0))
+          colorf += base[j] * (cc.charCodeAt(j) - "A".charCodeAt(0) + 10);
+        else
+          colorf += base[j] * parseFloat(cc.charAt(j));
+      }
+      color.push(colorf / 255.0);
+    }
+
+    color.push(1.0);
+    
+    return color;
+  }
+
   function ImageProcess(filename){
     return new Promise((resolve, reject) => {
         let img = new Image()
@@ -820,7 +875,10 @@ function parseLib(textLib) {
         //Object Engine
         createMesh : createMesh,
         createMeshByObjFile : createMeshByObjFile,
-        createTexture : createTexture
+        createTexture : createTexture,
+        //Functions
+        rgbToHex : rgbToHex,
+        hexToRgb : hexToRgb
     }
 
     })

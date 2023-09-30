@@ -1,16 +1,21 @@
+
 /**
- * Directional Light
+ * Point Light
  * @author César Himura
  * @version 1.0
  */
-class DirectionalLight {
-    
+class PointLight {
+
     constructor(){
         this.buffer = null;
+        this.position = [0.0, 0.0, 0.0];
         this.color = [1.0, 1.0, 1.0, 1.0];
-	    this.direction = [1.0, -1.0, -1.0, 0.0];
-	    this.enabled = true;
-	    this.intensity = 1.0;
+        this.range = 1.0;
+        this.kc = 0.0;
+        this.kl = 0.0;
+        this.kq = 0.0;
+        this.intensity = 1.0;
+        this.enabled = true;
         this.indexBuffer = 1;
     }
 
@@ -23,11 +28,11 @@ class DirectionalLight {
     }
 
     /**
-     * Get the direction of the light
-     * @returns {Vector3} the direction of the light
+     * Get the position of the light
+     * @returns {Vector3} the position of the light
      */
-    getDirection(){
-        return this.direction;
+    getPosition(){
+        return this.position;
     }
 
     /**
@@ -55,11 +60,11 @@ class DirectionalLight {
     }
 
     /**
-     * Set the direction of the light
-     * @param {Vector3} direction Direction of the light
+     * Set the position of the light
+     * @param {Vector3} position Position of the light
      */
-    setDirection(direction){
-        this.direction = direction;
+    setPosition(position){
+        this.position = position;
     }
 
     /**
@@ -79,6 +84,70 @@ class DirectionalLight {
     }
 
     /**
+     * Get the constant attenuation
+     * @returns Constant attenuation
+     */
+    getConstantAttenuation(){
+        return this.kc;
+    }
+
+    /**
+     * Get the lineal attenuation
+     * @returns Lineal attenuation
+     */
+    getLinealAttenuation(){
+        return this.kl;
+    }
+
+    /**
+     * Get the quadratic attenuation
+     * @returns Quadratic attenuation
+     */
+    getQuadraticAttenuation(){
+        return this.kq;
+    }
+
+    /**
+     * Set the constant attenuation
+     * @param {float} kc 
+     */
+    setConstantAttenuation(kc){
+        this.kc = kc;
+    }
+
+    /**
+     * Set the lineal attenuation
+     * @param {float} kl 
+     */
+    setLinealAttenuation(kl){
+        this.kl = kl;
+    }
+
+    /**
+     * Set the quadratic attenuation
+     * @param {float} kq 
+     */
+    setQuadraticAttenuation(kq){
+        this.kq = kq;
+    }
+
+    /**
+     * Get the range
+     * @returns {float} range
+     */
+    getRange(){
+        return this.range;
+    }
+
+    /**
+     * Set the range
+     * @param {float} range 
+     */
+    setRange(range){
+        this.range = range;
+    }
+
+    /**
      * Get the index buffer
      * @returns Index Buffer
      */
@@ -94,6 +163,9 @@ class DirectionalLight {
         this.indexBuffer = index;
     }
 
+    /**
+     * Update the light buffer
+     */
     updateBuffer(){
         if(this.buffer == null){
             this.buffer = webGLengine.createBuffer(gl);
@@ -101,19 +173,27 @@ class DirectionalLight {
 
         gl.bindBufferBase(gl.UNIFORM_BUFFER, this.indexBuffer, this.buffer);
         // Upload data:
-        //console.log("enabled:: " + this.isEnabled() ? 1 : 0);
         gl.bufferData(gl.UNIFORM_BUFFER, new Float32Array([
-            this.direction[0], this.direction[1], this.direction[2], this.direction[3],
+            this.position[0], this.position[1], this.position[2], 1.0,
             this.color[0], this.color[1], this.color[2], this.color[3],
-            this.enabled ? 1 : 0,
+            this.kc,
+            this.kl,
+            this.kq,
+            this.range,
+            this.enabled,
             this.intensity,
             0, 0 //padding
         ]), gl.DYNAMIC_DRAW);
     }
 
+    /**
+     * Get the light buffer
+     * @returns light buffer
+     */
     getBuffer(){
        this.updateBuffer();
 
         return this.buffer;
     }
+
 }
