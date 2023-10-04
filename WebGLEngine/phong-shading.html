@@ -14,6 +14,7 @@
     <script type="text/javascript" src="engine/KeyCode.js"></script>
     <script type="text/javascript" src="engine/light/DirectionalLight.js"></script>
     <script type="text/javascript" src="engine/light/PointLight.js"></script>
+    <script type="text/javascript" src="engine/light/SpotLight.js"></script>
 </head>
 <body onload="start();">
     <canvas width="800" height="600" id="webGLcanvas"></canvas>
@@ -31,13 +32,14 @@
 
         var directionalLight;
         var pointLight;
+        var spotLight;
 
         function start(){
             canvas = document.getElementById("webGLcanvas");
             gl = webGLengine.initWebGL(canvas);
 
             camera = new Camera(gl);
-            camera.setPosition([0.0, 0.0, 8.0]);
+            camera.setPosition([40.0, 50.0, 140.0]);
             camera.setSpeed(0.5);
 
             phongPipeline = new PhongShadingPipeline(gl);
@@ -54,6 +56,8 @@
             pointLight = new PointLight();
             pointLight.setPosition([0.0, 50.0, 50.0]);
             pointLight.setRange(100.0);
+            pointLight.setLinealAttenuation(0.025);
+            pointLight.setConstantAttenuation(0.1);
             pointLight.setIndexBuffer(2);
             document.getElementById("pointLight_x").value = pointLight.getPosition()[0];
             document.getElementById("pointLight_y").value = pointLight.getPosition()[1];
@@ -65,6 +69,37 @@
             document.getElementById("kc").value = pointLight.getConstantAttenuation();
             document.getElementById("kl").value = pointLight.getLinealAttenuation();
             document.getElementById("kq").value = pointLight.getQuadraticAttenuation();
+            
+
+            spotLight = new SpotLight();
+            spotLight.setPosition([0.0, 100.0, 0.0]);
+            spotLight.setIntensity(0.5);
+            spotLight.setRange(150);
+            spotLight.setAngleX(webGLengine.degreeToRadian(0.0));
+            spotLight.setAngleY(webGLengine.degreeToRadian(0.0));
+            spotLight.setAngleZ(webGLengine.degreeToRadian(0.0));
+            spotLight.setInnerAngle(webGLengine.degreeToRadian(30.0));
+            spotLight.setExternAngle(webGLengine.degreeToRadian(30.0));
+            spotLight.setRange(100);
+            spotLight.setLinealAttenuation(0.025);
+            spotLight.setConstantAttenuation(0.1);
+            spotLight.setIndexBuffer(3);
+            document.getElementById("spotLight_x").value = spotLight.getPosition()[0];
+            document.getElementById("spotLight_y").value = spotLight.getPosition()[1];
+            document.getElementById("spotLight_z").value = spotLight.getPosition()[2];
+            document.getElementById("spotLight_dirx").value = spotLight.getDirection()[0];
+            document.getElementById("spotLight_diry").value = spotLight.getDirection()[1];
+            document.getElementById("spotLight_dirz").value = spotLight.getDirection()[2];
+            document.getElementById("color_spotLight").value = webGLengine.rgbToHex(spotLight.getColor());
+            document.getElementById("intens_spotLight").value = spotLight.getIntensity();
+            document.getElementById("range_spotLight").value = spotLight.getRange();
+            document.getElementById("enabled_spotLight").checked = spotLight.isEnabled();
+            document.getElementById("kc_spotLight").value = spotLight.getConstantAttenuation();
+            document.getElementById("kl_spotLight").value = spotLight.getLinealAttenuation();
+            document.getElementById("kq_spotLight").value = spotLight.getQuadraticAttenuation();
+
+            spotLight.setSpotAngle(webGLengine.degreeToRadian(90.0));
+            document.getElementById("spotAngle_spotLight").value = webGLengine.radianToDegree(spotLight.getSpotAngle());
             
             garfield = webGLengine.createMeshByObjFile(gl, "models/garfield/garfield.obj");
             odie = webGLengine.createMeshByObjFile(gl, "models/odie/odie.obj");
@@ -119,6 +154,28 @@
             pointLight.setConstantAttenuation(document.getElementById("kc").value);
             pointLight.setLinealAttenuation(document.getElementById("kl").value);
             pointLight.setQuadraticAttenuation(document.getElementById("kq").value);
+
+            spotLight.setPosition([
+                document.getElementById("spotLight_x").value,
+                document.getElementById("spotLight_y").value,
+                document.getElementById("spotLight_z").value
+            ]);
+
+            spotLight.setDirection([
+                document.getElementById("spotLight_dirx").value,
+                document.getElementById("spotLight_diry").value,
+                document.getElementById("spotLight_dirz").value
+            ]);
+            
+            spotLight.setColor(webGLengine.hexToRgb(document.getElementById("color_spotLight").value));
+            spotLight.setEnabled(document.getElementById("enabled_spotLight").checked);
+            spotLight.setIntensity(document.getElementById("intens_spotLight").value);
+            spotLight.setRange(document.getElementById("range_spotLight").value);
+            spotLight.setConstantAttenuation(document.getElementById("kc_spotLight").value);
+            spotLight.setLinealAttenuation(document.getElementById("kl_spotLight").value);
+            spotLight.setQuadraticAttenuation(document.getElementById("kq_spotLight").value);
+
+            spotLight.setSpotAngle(webGLengine.degreeToRadian(document.getElementById("spotAngle_spotLight").value));
         }
 
         function cameraInfo(){
@@ -154,6 +211,9 @@
             gl.bindBuffer(gl.UNIFORM_BUFFER, pointLight.getBuffer());
             gl.uniformBlockBinding(phongPipeline.getProgram(), gl.getUniformBlockIndex(phongPipeline.getProgram(), 'u_point_light'), pointLight.getIndexBuffer());
 
+            gl.bindBuffer(gl.UNIFORM_BUFFER, spotLight.getBuffer());
+            gl.uniformBlockBinding(phongPipeline.getProgram(), gl.getUniformBlockIndex(phongPipeline.getProgram(), 'u_spot_light'), spotLight.getIndexBuffer());
+
             garfield.then(function(staticMesh){
                 staticMesh.render(phongPipeline);
             });
@@ -169,11 +229,13 @@
 
     <div>
         <h3>Directional Light</h3>
-        <p>Direction</p>
-        <input type="text" name="directionalLight_dir_x" id="directionalLight_dir_x" onChange="gui();">
-        <input type="text" name="directionalLight_dir_y" id="directionalLight_dir_y" onChange="gui();">
-        <input type="text" name="directionalLight_dir_z" id="directionalLight_dir_z" onChange="gui();">
-        <input type="text" name="directionalLight_dir_w" id="directionalLight_dir_w" onChange="gui();">
+        <p>
+            Direction
+            <input type="text" name="directionalLight_dir_x" id="directionalLight_dir_x" onChange="gui();">
+            <input type="text" name="directionalLight_dir_y" id="directionalLight_dir_y" onChange="gui();">
+            <input type="text" name="directionalLight_dir_z" id="directionalLight_dir_z" onChange="gui();">
+            <input type="text" name="directionalLight_dir_w" id="directionalLight_dir_w" onChange="gui();">
+        </p>
         <p>Color <input type="color" id="colorDirectionalLight" onchange="gui();"></input> </p>
         <p>Intensity <input type="text" id="intens_dirLight" onchange="gui();"> </p>
         <p>Enable <input type="checkbox" id="chkDirectionalLight" onChange="gui();" /></p>
@@ -194,6 +256,30 @@
         <p>Linear Attenuation<input type="text" id="kl" onchange="gui();"> </p>
         <p>Quadratic Attenuation<input type="text" id="kq" onchange="gui();"> </p>
         <p>Enable <input type="checkbox" id="enabled_pointLight" onChange="gui();" /></p>
+    </div>
+
+    <div>
+        <h3>Spot Light</h3>
+        <p>
+            Position
+            <input type="text" name="spotLight_x" id="spotLight_x" onChange="gui();">
+            <input type="text" name="spotLight_y" id="spotLight_y" onChange="gui();">
+            <input type="text" name="spotLight_z" id="spotLight_z" onChange="gui();">
+        </p>
+        <p>
+            Direction
+            <input type="text" id="spotLight_dirx" onChange="gui();">
+            <input type="text" id="spotLight_diry" onChange="gui();">
+            <input type="text" id="spotLight_dirz" onChange="gui();">
+        </p>
+        <p>Color <input type="color" id="color_spotLight" onchange="gui();"></input> </p>
+        <p>Intensity <input type="text" id="intens_spotLight" onchange="gui();"> </p>
+        <p>Range <input type="text" id="range_spotLight" onchange="gui();"> </p>
+        <p>Spot Angle <input type="text" id="spotAngle_spotLight" onchange="gui();"> </p>
+        <p>Constant Attenuation <input type="text" id="kc_spotLight" onchange="gui();"> </p>
+        <p>Linear Attenuation<input type="text" id="kl_spotLight" onchange="gui();"> </p>
+        <p>Quadratic Attenuation<input type="text" id="kq_spotLight" onchange="gui();"> </p>
+        <p>Enable <input type="checkbox" id="enabled_spotLight" onChange="gui();" /></p>
     </div>
 
     <div>

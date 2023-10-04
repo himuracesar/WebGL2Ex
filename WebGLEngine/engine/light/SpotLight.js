@@ -1,19 +1,24 @@
-
 /**
- * Point Light
- * @author César Himura
+ * Spot Light
+ * @author Cesar Himura
  * @version 1.0
  */
-class PointLight {
-
+class SpotLight{
     constructor(){
         this.buffer = null;
         this.position = [0.0, 0.0, 0.0];
+        this.direction = [0.0, -1.0, 0.0];
         this.color = [1.0, 1.0, 1.0, 1.0];
         this.range = 1.0;
         this.kc = 0.0;
         this.kl = 0.0;
         this.kq = 0.0;
+        this.spotAngle;
+		this.spotInnerAngle;
+		this.spotExternAngle;
+		this.angleX;
+		this.angleY;
+		this.angleZ;
         this.intensity = 1.0;
         this.enabled = true;
         this.indexBuffer = 1;
@@ -25,6 +30,14 @@ class PointLight {
      */
     getColor(){
         return this.color;
+    }
+
+    /**
+     * Get the direction of the light
+     * @returns {Vector3} the direction of the light
+     */
+    getDirection(){
+        return this.direction;
     }
 
     /**
@@ -65,6 +78,14 @@ class PointLight {
      */
     setPosition(position){
         this.position = position;
+    }
+
+    /**
+     * Set the direction of the light
+     * @param {Vector3} direction Direction of the light
+     */
+    setDirection(direction){
+        this.direction = direction;
     }
 
     /**
@@ -148,6 +169,102 @@ class PointLight {
     }
 
     /**
+     * Get Spot angle
+     * @returns {float} Spot angle
+     */
+    getSpotAngle(){
+        return this.spotAngle;
+    }
+
+    /**
+     * Get inner angle
+     * @returns {float} Inner angle
+     */
+    getInnerAngle(){
+        return this.spotInnerAngle;
+    }
+
+    /**
+     * Get extern angle
+     * @returns {float} Spot angle
+     */
+    getExternAngle(){
+        return this.spotExternAngle;
+    }
+
+    /**
+     * Get Angle in X axis
+     * @returns {float} Angle in X axis
+     */
+    getAngleX(){
+        return this.angleX;
+    }
+
+    /**
+     * Get Angle in Y axis
+     * @returns {float} Angle in YS axis
+     */
+    getAngleY(){
+        return this.angleY;
+    }
+
+    /**
+     * Get Angle in Z axis
+     * @returns {float} Angle in Z axis
+     */
+    getAngleZ(){
+        return this.angleZ;
+    }
+
+    /**
+     * Set the spot angle
+     * @param {float} angle Angle in radians
+     */
+    setSpotAngle(angle){
+        this.spotAngle = angle;
+    }
+
+    /**
+     * Set the inner angle
+     * @param {float} angle Angle in radians
+     */
+    setInnerAngle(angle){
+        this.spotAngle = angle;
+    }
+
+    /**
+     * Set the extern angle
+     * @param {float} angle Angle in radians
+     */
+    setExternAngle(angle){
+        this.spotAngle = angle;
+    }
+
+    /**
+     * Set the angle in X axis
+     * @param {float} angle Angle in radians
+     */
+    setAngleX(angle){
+        this.angleX = angle;
+    }
+
+    /**
+     * Set the angle in Y axis
+     * @param {float} angle Angle in radians
+     */
+    setAngleY(angle){
+        this.angleY = angle;
+    }
+
+    /**
+     * Set the angle in Z axis
+     * @param {float} angle Angle in radians
+     */
+    setAngleZ(angle){
+        this.angleZ = angle;
+    }
+
+    /**
      * Get the index buffer
      * @returns {int} Index Buffer
      */
@@ -175,14 +292,20 @@ class PointLight {
         // Upload data:
         gl.bufferData(gl.UNIFORM_BUFFER, new Float32Array([
             this.position[0], this.position[1], this.position[2], 1.0,
+            this.direction[0], this.direction[1], this.direction[2], 0.0,
             this.color[0], this.color[1], this.color[2], this.color[3],
             this.kc,
             this.kl,
             this.kq,
             this.range,
             this.enabled,
+            this.spotAngle,
+            this.spotInnerAngle,
+            this.spotExternAngle,
             this.intensity,
-            0, 0 //padding
+            this.angleX,
+            this.angleY,
+            this.angleZ
         ]), gl.DYNAMIC_DRAW);
     }
 
@@ -195,5 +318,4 @@ class PointLight {
 
         return this.buffer;
     }
-
 }

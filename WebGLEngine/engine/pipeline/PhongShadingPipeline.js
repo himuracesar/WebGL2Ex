@@ -65,6 +65,25 @@ class PhongShadingPipeline extends Pipeline {
                 float intensity;
             };
 
+            struct SpotLight
+            {
+                vec4 position;
+                vec4 direction;
+                vec4 color;
+                float kc; //Constant Attenuation
+                float kl; //Linear Attenuation
+                float kq; //Quadratic Attenuation
+                float range;
+                int enabled;
+                float spotAngle;
+                float spotInnerAngle;
+                float spotExternAngle;
+                float intensity;
+                float angleX;
+                float angleY;
+                float angleZ;
+            };
+
             struct Lighting
             {
                 vec4 ambient;
@@ -95,6 +114,10 @@ class PhongShadingPipeline extends Pipeline {
 
             layout(std140) uniform u_point_light {
                 PointLight pl;
+            };
+
+            layout(std140) uniform u_spot_light {
+                SpotLight sl;
             };
 
             uniform sampler2D u_sampler0;
@@ -194,10 +217,60 @@ class PhongShadingPipeline extends Pipeline {
                 return lighting;
             }
 
+            Lighting ComputeSpotLight(SpotLight sl, Material material, vec3 position, vec3 normal, vec3 viewDirection)
+            {
+                Lighting lighting;
+
+                lighting.ambient = vec4(0.0f, 0.0f, 0.0f, 0.0f);
+                lighting.diffuse = vec4(0.0f, 0.0f, 0.0f, 0.0f);
+                lighting.specular = vec4(0.0f, 0.0f, 0.0f, 0.0f);
+
+                vec4 lightPosWV = camera.mWorldView * sl.position;
+                vec4 spotLightDirectionWV = camera.mWorldView * sl.direction;
+
+                vec3 lightDirectionWV = lightPosWV.xyz - position;
+
+                float d = length(lightDirectionWV);
+
+                if (d > sl.range)
+                {
+                    return lighting;
+                }
+
+                lightDirectionWV /= d;
+
+                lighting.ambient = GetAmbientLighting(sl.color, material.ambientColor);
+
+                //normal = normalize(normal);
+                lighting.diffuse = GetDiffuseLighting(lightDirectionWV, normal, sl.color * sl.intensity, material.diffuseColor);
+                lighting.specular = GetSpecularLighting(lightDirectionWV, normal, viewDirection, sl.color, material.specularColor, material.specularPower);
+
+                //float spot = pow(max(dot(-light, normalize(sl.  )), 0.0f), sl.spotAngle);
+                // Spot intensity
+                /** Control del cono del spot con un solo angulo */
+                float minCos = cos(sl.spotAngle);
+                float maxCos = (minCos + 1.0f) / 2.0f;
+
+                /** Control con dos conos, uno interno y otro externo */
+                /*float minCos = cos(sl.spotExternAngle);
+                float maxCos = cos(sl.spotInnerAngle);*/
+
+                float cosAngle = dot(spotLightDirectionWV.xyz, - lightDirectionWV);
+                float spot = smoothstep(minCos, maxCos, cosAngle);
+
+                float attenuation = spot / GetAttenuation(sl.kc, sl.kl, sl.kq, d);
+
+                lighting.ambient *= spot;
+                lighting.diffuse = lighting.diffuse * attenuation;
+                lighting.specular = lighting.specular * attenuation;
+
+                return lighting;
+            }
+
             void main(){
                 vec3 normalWV = normalize((u_mView * vec4(normalize(o_normalWV), 0.0f)).xyz);
 
-                camera.mWorldView = u_mView;// * u_mModel;
+                camera.mWorldView = u_mView * u_mModel;
 
                 camera.cameraPosWV = camera.mWorldView * vec4(u_camera_position, 1.0f);
 	            vec4 viewDirection = camera.cameraPosWV - vec4(o_positionWV, 1.0f);
@@ -222,8 +295,16 @@ class PhongShadingPipeline extends Pipeline {
                     lighting.ambient += l.ambient;
                 }
 
+                if(sl.enabled > 0){
+                    Lighting l;
+                    l = ComputeSpotLight(sl, mat, o_positionWV, normalize(o_normalWV), normalize(viewDirection.xyz));
+                    lighting.diffuse += l.diffuse;
+                    lighting.specular += l.specular;
+                    lighting.ambient += l.ambient;
+                }
+
                 color = texture(u_sampler0, vec2(o_texcoord.x, o_texcoord.y)) * (lighting.diffuse + lighting.specular + lighting.ambient);
-                //color = pl.color;
+                //color = sl.color;
                 //color = lighting.diffuse;
             }
         `;
@@ -259,8 +340,6 @@ class PhongShadingPipeline extends Pipeline {
         uniforms.set("u_camera_position", u_camera_position);
 
         this.uniforms = uniforms;
-
-        this.lightsIndex = 1;
     }
 
     /**
@@ -303,13 +382,4 @@ class PhongShadingPipeline extends Pipeline {
     getVertexFormat(){
         return this.vertexFormat;
     }
-
-    /**
-     * Get the index of lights uniform shader
-     * @returns {int} lights index
-     */
-    getLightsIndex(){
-        return this.lightsIndex;
-    }
-    
 }
