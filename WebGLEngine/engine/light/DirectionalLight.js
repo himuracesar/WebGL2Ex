@@ -80,7 +80,7 @@ class DirectionalLight {
 
     /**
      * Get the index buffer
-     * @returns Index Buffer
+     * @returns {int} Index Buffer
      */
     getIndexBuffer(){
         return this.indexBuffer;
@@ -94,6 +94,9 @@ class DirectionalLight {
         this.indexBuffer = index;
     }
 
+    /**
+     * Update the buffer
+     */
     updateBuffer(){
         if(this.buffer == null){
             this.buffer = webGLengine.createBuffer(gl);
@@ -111,6 +114,10 @@ class DirectionalLight {
         ]), gl.DYNAMIC_DRAW);
     }
 
+     /**
+     * Get a uniform buffer to send the information about material to shader
+     * @returns {WebGLBuffer} Uniform buffer to send the information to shader
+     */
     getBuffer(){
        this.updateBuffer();
 

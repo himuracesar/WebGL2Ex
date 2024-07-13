@@ -51,7 +51,7 @@ class StaticMesh {
         
         for(var i = 0; i < this.submeshes.length; i++){
             gl.bindBuffer(gl.ARRAY_BUFFER, this.submeshes[i].getVertexBuffer());
-
+            
             /**
              * It's important vertexAttribPointer and enableVertexAttribArray are inside of bindVertexArray to correct render
              */
@@ -71,28 +71,34 @@ class StaticMesh {
                 this.materials[this.submeshes[i].materialIndex].getBuffer());*/
 
             //console.log(gl.getUniformBlockIndex(pipeline.getProgram(), 'u_material'));
+            debugger;
+            if(this.submeshes[i].materialIndex > -1){
+                if(gl.getUniformBlockIndex(pipeline.getProgram(), "u_material") !== undefined){
+                    gl.bindBuffer(gl.UNIFORM_BUFFER, this.materials[this.submeshes[i].materialIndex].getBuffer());
+                    gl.uniformBlockBinding(pipeline.getProgram(), gl.getUniformBlockIndex(pipeline.getProgram(), "u_material"), this.materials[this.submeshes[i].materialIndex].getIndexBuffer());
+                }
 
-            
-            gl.bindBuffer(gl.UNIFORM_BUFFER, this.materials[this.submeshes[i].materialIndex].getBuffer());
-            gl.uniformBlockBinding(pipeline.getProgram(), gl.getUniformBlockIndex(pipeline.getProgram(), 'u_material'), 0);
-    
-            var iSampler = 0;
-            while(pipeline.getUniformLocation("u_sampler" + iSampler) !== undefined && this.getNumTextures() > 0){
-                if(this.textures[this.materials[this.submeshes[i].materialIndex].diffuseTextureIndex].getTexture() != null){
+                var iSampler = 0;
+                while(pipeline.getUniformLocation("u_sampler" + iSampler) !== undefined && this.materials[this.submeshes[i].materialIndex].hasTexture() ){
+                    if(this.textures[this.materials[this.submeshes[i].materialIndex].diffuseTextureIndex].getTexture() == null)
+                        break;
+
                     gl.activeTexture(gl.TEXTURE0 + iSampler);
                     gl.bindTexture(gl.TEXTURE_2D, this.textures[this.materials[this.submeshes[i].materialIndex].diffuseTextureIndex].getTexture());
+                    /**
+                     * TODO The 0 value must be dynamic. The engine have to decide the value.
+                     */
                     gl.uniform1i(gl.getUniformLocation(pipeline.getProgram(), "u_sampler" + iSampler), 0);
 
                     iSampler++;
                 }
-                else
-                    break;
             }
-            
+    
             if(this.submeshes[i].getNumIndices() > 0){
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.submeshes[i].getIndexBuffer());
                 gl.drawElements(gl.TRIANGLES, this.submeshes[i].getNumIndices(), gl.UNSIGNED_SHORT, 0);
-            }
-            else{
+                //gl.getError(); 
+            } else {
                 gl.drawArrays(gl.TRIANGLES, 0, this.submeshes[i].getNumVertices());
             }
 
@@ -101,6 +107,8 @@ class StaticMesh {
             }
         }
 
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
         gl.bindTexture(gl.TEXTURE_2D, null);
         gl.bindVertexArray(null);
         gl.useProgram(null);
@@ -150,6 +158,14 @@ class StaticMesh {
     }
 
     /**
+     * Get the number of rows by vertex
+     * @returns {int} The number of rows by vertex
+     */
+    getVertexByRow(){
+        return this.vertexByRow;
+    }
+
+    /**
      * Rotate in Y axis
      * @param {float} angle angle to rotate
      */
@@ -177,7 +193,7 @@ class StaticMesh {
      * Scale the model
      * @param {array} scale 
      */
-    scale(scale){
+    setScale(scale){
         this.scale = scale;
     }
 
@@ -211,5 +227,26 @@ class StaticMesh {
      */
     getNumTextures(){
         return this.textures.length;
+    }
+
+    /**
+     * Get a material by index
+     * @param {int} index Index in tha array materials
+     */
+    getMaterial(index){
+        return this.materials[index];
+    }
+
+    /**
+     * Set a material for the mesh
+     * @param {int} index 
+     * @param {Material} material 
+     */
+    setMaterial(index, material){
+        this.materials[index] = material;
+    }
+
+    getSubmesh(index){
+        return this.submeshes[index];
     }
 }

@@ -2,6 +2,7 @@
 /**
  * Standard pipeline. The shaders only draw the position and color of the vertices
  * @author César Himura
+ * @version 1.0
  */
 class StandardPipeline extends Pipeline {
 
@@ -70,7 +71,7 @@ class StandardPipeline extends Pipeline {
 
     /**
      * Get the program that links the shaders
-     * @returns program
+     * @returns {GLprogram} program
      */
     getProgram(){
         return super.getProgram();

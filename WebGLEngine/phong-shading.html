@@ -7,11 +7,8 @@
     <title>WebGL - WebGL Engine Phong Shading</title>
 
     <script type="text/javascript" src="engine/WebGL-Engine.js"></script>
-    <script type="text/javascript" src="engine/Camera.js"></script>
-    <script type="text/javascript" src="engine/m4.js"></script>
     <script type="text/javascript" src="engine/pipeline/Pipeline.js"></script>
     <script type="text/javascript" src="engine/pipeline/PhongShadingPipeline.js"></script>
-    <script type="text/javascript" src="engine/KeyCode.js"></script>
     <script type="text/javascript" src="engine/light/DirectionalLight.js"></script>
     <script type="text/javascript" src="engine/light/PointLight.js"></script>
     <script type="text/javascript" src="engine/light/SpotLight.js"></script>
@@ -203,16 +200,10 @@
             gl.uniformMatrix4fv(phongPipeline.getUniformLocation("u_mProj"), false, camera.getProjectionMatrix());
             gl.uniformMatrix4fv(phongPipeline.getUniformLocation("u_mView"), false, camera.getViewMatrix());
             gl.uniform3fv(phongPipeline.getUniformLocation("u_camera_position"), camera.getPosition());
-            
-            //gl.bindBufferBase(gl.UNIFORM_BUFFER, 0/*phongPipeline.getLightsIndex()*/, directionalLight.getBuffer());
-            gl.bindBuffer(gl.UNIFORM_BUFFER, directionalLight.getBuffer());
-            gl.uniformBlockBinding(phongPipeline.getProgram(), gl.getUniformBlockIndex(phongPipeline.getProgram(), 'u_directional_light'), directionalLight.getIndexBuffer());
 
-            gl.bindBuffer(gl.UNIFORM_BUFFER, pointLight.getBuffer());
-            gl.uniformBlockBinding(phongPipeline.getProgram(), gl.getUniformBlockIndex(phongPipeline.getProgram(), 'u_point_light'), pointLight.getIndexBuffer());
-
-            gl.bindBuffer(gl.UNIFORM_BUFFER, spotLight.getBuffer());
-            gl.uniformBlockBinding(phongPipeline.getProgram(), gl.getUniformBlockIndex(phongPipeline.getProgram(), 'u_spot_light'), spotLight.getIndexBuffer());
+            phongPipeline.setLight(directionalLight, 'u_directional_light');
+            phongPipeline.setLight(pointLight, 'u_point_light');
+            phongPipeline.setLight(spotLight, 'u_spot_light');
 
             garfield.then(function(staticMesh){
                 staticMesh.render(phongPipeline);

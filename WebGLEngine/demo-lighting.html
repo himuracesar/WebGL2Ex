@@ -1,0 +1,240 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lighting - WebGL Engine</title>
+
+    <script type="text/javascript" src="engine/WebGL-Engine.js"></script>
+    <script type="text/javascript" src="engine/pipeline/Pipeline.js"></script>
+    <script type="text/javascript" src="engine/pipeline/PhongShadingPipeline.js"></script>
+    <script type="text/javascript" src="engine/pipeline/TexturePipeline.js"></script>
+    <script type="text/javascript" src="engine/light/DirectionalLight.js"></script>
+
+</head>
+<body onload="start();">
+    <canvas width="800" height="600" id="webGLcanvas"></canvas>
+
+    <script type="text/javascript">
+        var gl;
+        var canvas;
+        var camera;
+
+        var floor;
+        var sphere;
+        var torus;
+        var material;
+        var mat;
+        var cube
+        var cube2;
+
+        var phongPipeline;
+        var texturePipeline;
+
+        var directionalLight;
+
+        function start(){
+            canvas = document.getElementById("webGLcanvas");
+            gl = webGLengine.initWebGL(canvas);
+
+            camera = new Camera(gl);
+            camera.setPosition([40.0, 50.0, 140.0]);
+            camera.setSpeed(0.75);
+
+            phongPipeline = new PhongShadingPipeline(gl);
+            texturePipeline = new TexturePipeline(gl);
+
+            window.addEventListener("keydown", onKeyDown.bind(this));
+            window.addEventListener("keyup", onKeyUp.bind(this));
+
+            //----------- Cube mesh ------------------
+            // position (3), texcoord (2), normal (3)
+            var cubevertices = new Float32Array([
+                //Front
+                -1.0, -1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, //0
+                 1.0, -1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, //1
+                 1.0,  1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, //2
+                -1.0,  1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, //3
+                //Right
+                 1.0, -1.0,  1.0, 0.0, 1.0, 1.0, 0.0, 0.0, //4
+                 1.0, -1.0, -1.0, 1.0, 1.0, 1.0, 0.0, 0.0, //5
+                 1.0,  1.0, -1.0, 1.0, 0.0, 1.0, 0.0, 0.0, //6
+                 1.0,  1.0,  1.0, 0.0, 0.0, 1.0, 0.0, 0.0, //7
+                //Back
+                 1.0, -1.0, -1.0, 0.0, 1.0, 0.0, 0.0, -1.0, //8
+                -1.0, -1.0, -1.0, 1.0, 1.0, 0.0, 0.0, -1.0, //9
+                -1.0,  1.0, -1.0, 1.0, 0.0, 0.0, 0.0, -1.0, //10
+                 1.0,  1.0, -1.0, 0.0, 0.0, 0.0, 0.0, -1.0, //11
+                //Left
+                -1.0, -1.0, -1.0, 0.0, 1.0, -1.0, 0.0, 0.0, //12
+                -1.0, -1.0,  1.0, 1.0, 1.0, -1.0, 0.0, 0.0, //13
+                -1.0,  1.0,  1.0, 1.0, 0.0, -1.0, 0.0, 0.0, //14
+                -1.0,  1.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, //15
+                //Top
+                -1.0,  1.0,  1.0, 0.0, 1.0, 0.0, 1.0, 0.0, //16
+                 1.0,  1.0,  1.0, 1.0, 1.0, 0.0, 1.0, 0.0, //17
+                 1.0,  1.0, -1.0, 1.0, 0.0, 0.0, 1.0, 0.0, //18
+                -1.0,  1.0, -1.0, 0.0, 0.0, 0.0, 1.0, 0.0, //19
+                //Bottom
+                -1.0, -1.0, -1.0, 0.0, 1.0, 0.0, -1.0, 0.0, //20
+                 1.0, -1.0, -1.0, 1.0, 1.0, 0.0, -1.0, 0.0, //21
+                 1.0, -1.0,  1.0, 1.0, 0.0, 0.0, -1.0, 0.0, //22
+                -1.0, -1.0,  1.0, 0.0, 0.0, 0.0, -1.0, 0.0  //23
+            ]);
+
+            var indices = new Uint16Array([
+                //Front
+                0, 1, 2, 0, 2, 3,
+                //Right
+                4, 5, 6, 4, 6, 7,
+                //Back
+                8, 9, 10, 8, 10, 11,
+                //Left
+                12, 13, 14, 12, 14, 15,
+                //Top
+                16, 17, 18, 16, 18, 19,
+                //Bottom
+                20, 21, 22, 20, 22, 23
+            ]);
+
+            /*gl.bindBuffer(gl.ARRAY_BUFFER, vbocube);
+            gl.bufferData(gl.ARRAY_BUFFER, meshcube, gl.STATIC_DRAW);
+
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibocube);
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);*/
+
+            cube = webGLengine.createMesh(gl, cubevertices, indices, phongPipeline.getVertexFormat());
+
+            material = new Material();
+            material.setDiffuseColor([1.0, 0.0, 0.0, 1.0]);
+            material.setAmbientColor([0.1, 0.0, 0.0, 1.0]);
+            material.setSpecularColor([1.0, 1.0, 1.0, 1.0]);
+            material.setSpecularPower(32.0);
+            material.setIndexBuffer(0);
+            material.setName("Red Mat");
+
+            cube.setMaterial(0, material);
+            cube.getSubmesh(0).materialIndex = 0;
+
+            cube2 = webGLengine.createMesh(gl, cubevertices, indices, phongPipeline.getVertexFormat());
+
+            mat = new Material();
+            mat.setDiffuseColor([0.5, 0.5, 0.5, 1.0]);
+            mat.setAmbientColor([0.1, 0.1, 0.1, 1.0]);
+            mat.setSpecularColor([1.0, 1.0, 1.0, 1.0]);
+            mat.setSpecularPower(64.0);
+            mat.setIndexBuffer(0);
+            mat.setName("Gray Mat");
+
+            cube2.setMaterial(0, mat);
+            cube2.getSubmesh(0).materialIndex = 0;
+
+            //fn = webGLengine.createMeshByObjFile(gl, "models/platform.obj");
+            //fn = webGLengine.createMeshByObjFile(gl, "models/sphere.obj");
+            //torus = webGLengine.createMeshByObjFile(gl, "models/torus.obj");
+
+            /*var fnSphere = webGLengine.createMeshByObjFile(gl, "models/sphere.obj");
+            fnSphere.then(function(staticMesh){
+                debugger;
+                sphere = staticMesh;
+                sphere.setMaterial(0, material);
+                //staticMesh.setMaterial(0, material);
+            });*/
+
+            /*
+            var fnFloor = webGLengine.createMeshByObjFile(gl, "models/platform.obj");
+            fnFloor.then(function(staticMesh){
+                floor = staticMesh;
+            });*/
+
+            directionalLight = new DirectionalLight();
+
+            render();
+        }
+
+        function input(){
+            if(keypress[KeyCode.W])
+                camera.moveForward(1);
+            if(keypress[KeyCode.S])
+                camera.moveForward(-1);
+            if(keypress[KeyCode.A])
+                camera.strafe(-1);
+            if(keypress[KeyCode.D])
+                camera.strafe(1);
+            if(keypress[KeyCode.Left])
+                camera.yaw(0.01);
+            if(keypress[KeyCode.Right])
+                camera.yaw(-0.01);
+            if(keypress[KeyCode.Up])
+                camera.pitch(0.01);
+            if(keypress[KeyCode.Down])
+                camera.pitch(-0.01);
+        }
+
+        function render(){
+            gl.clearColor(0.4, 0.6, 0.9, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            gl.enable(gl.DEPTH_TEST);
+            gl.enable(gl.CULL_FACE);
+
+            gl.depthFunc(gl.LEQUAL);
+            gl.cullFace(gl.BACK);
+
+            console.log("Render");
+
+            input();
+
+            phongPipeline.use();
+
+            gl.uniformMatrix4fv(phongPipeline.getUniformLocation("u_mProj"), false, camera.getProjectionMatrix());
+            gl.uniformMatrix4fv(phongPipeline.getUniformLocation("u_mView"), false, camera.getViewMatrix());
+            gl.uniform3fv(phongPipeline.getUniformLocation("u_camera_position"), camera.getPosition());
+
+            phongPipeline.setLight(directionalLight, "u_directional_light");
+
+            /*sphere.then(function(staticMesh){
+                staticMesh.setPosition([0.0, 25.0, 0.0]);
+                staticMesh.render(phongPipeline);
+            });
+            
+            sphere.then(function(staticMesh){
+                //staticMesh.setMaterial(0, material);
+                staticMesh.setPosition([-75.0, 25.0, 0.0]);
+                staticMesh.render(phongPipeline);
+            });
+            
+            floor.then(function(staticMesh){
+                debugger;
+                staticMesh.render(phongPipeline);
+            });
+
+            torus.then(function(staticMesh){
+                staticMesh.setPosition([0.0, 100.0, 0.0]);
+                staticMesh.render(phongPipeline);
+            });*/
+            
+            /*if(sphere !== undefined){
+                debugger;
+                sphere.render(phongPipeline);
+            }*/
+
+            /*if(floor !== undefined){
+                debugger;
+                floor.setPosition([0.0, -50.0, 0.0]);
+                floor.render(phongPipeline);
+            }*/
+
+            /*cube.setScale([15.0, 15.0, 15.0]);
+            cube.render(phongPipeline);*/
+
+            cube2.setScale([15.0, 15.0, 15.0]);
+            cube2.setPosition([50.0, 0.0, 0.0]);
+            cube2.render(phongPipeline);
+
+            requestAnimationFrame(render);
+        }
+
+    </script>
+    
+</body>
+</html>

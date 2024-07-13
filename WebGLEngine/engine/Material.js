@@ -20,6 +20,8 @@ class Material {
         this.bumpMapIndex = -1;
         this.roughness = 0.0;
         this.metallness = 0.0;
+        this._hasTexture = false;
+        this.indexBuffer = 0;
     }
 
     /**
@@ -135,6 +137,37 @@ class Material {
     }
 
     /**
+     * Set the index buffer
+     * @param {int} index Index
+     */
+    setIndexBuffer(index){
+        this.indexBuffer = index;
+    }
+
+    /**
+     * Get the index buffer
+     * @returns {int} The index buffer
+     */
+    getIndexBuffer(){
+        return this.indexBuffer;
+    }
+
+    /**
+     * Set if the material has texture
+     * @returns {boolean} True if the material has texture
+     */
+    setHasTexture(b){
+        this._hasTexture = b;
+    }
+
+    /**
+     * @returns true If the material has texture false in the other hand
+     */
+    hasTexture(){
+        return this._hasTexture;
+    }
+
+    /**
      * Get a uniform buffer to send the information about material to shader
      * @returns {WebGLBuffer} Uniform buffer to send the information to shader
      */
@@ -142,7 +175,7 @@ class Material {
         if(this.buffer == null){
             this.buffer = webGLengine.createBuffer(gl);
             //gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffer);
-            gl.bindBufferBase(gl.UNIFORM_BUFFER, 0, this.buffer);
+            gl.bindBufferBase(gl.UNIFORM_BUFFER, this.indexBuffer, this.buffer);
             gl.bufferData(gl.UNIFORM_BUFFER, new Float32Array([
                 this.diffuseColor[0], this.diffuseColor[1], this.diffuseColor[2], this.diffuseColor[3],
                 this.specularColor[0], this.specularColor[1], this.specularColor[2], this.specularColor[3],
@@ -153,7 +186,8 @@ class Material {
                 this.opticalDensity, 
                 this.roughness,
                 this.metallness,
-                0, 0, 0 //padding
+                this._hasTexture ? 1 : 0, 
+                0, 0 //padding
             ]), gl.DYNAMIC_DRAW);
         }
 

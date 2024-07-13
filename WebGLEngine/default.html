@@ -7,12 +7,14 @@
     <title>WebGL - WebGL Engine Demo</title>
 
     <script type="text/javascript" src="engine/WebGL-Engine.js"></script>
+    <!-- 
     <script type="text/javascript" src="engine/Camera.js"></script>
     <script type="text/javascript" src="engine/m4.js"></script>
+    -->
     <script type="text/javascript" src="engine/pipeline/Pipeline.js"></script>
     <script type="text/javascript" src="engine/pipeline/StandardPipeline.js"></script>
     <script type="text/javascript" src="engine/pipeline/TexturePipeline.js"></script>
-    <script type="text/javascript" src="engine/KeyCode.js"></script>
+    <!-- <script type="text/javascript" src="engine/KeyCode.js"></script> -->
 </head>
 <body onload="start();">
     <canvas width="800" height="600" id="webGLcanvas"></canvas>
@@ -32,6 +34,8 @@
 
         var yRotation = 0.0;
         var speedRotation = 0.01;
+
+        var M_red;
 
         function start(){
             canvas = document.getElementById("webGLcanvas");
@@ -136,6 +140,16 @@
             //cubetx = webGLengine.createMesh(gl, vertices, indices, standardPipeline.getVertexFormat());
             //cube = webGLengine.createMesh(gl, vertices, indices, standardPipeline.getVertexFormat());
             garfield = webGLengine.createMeshByObjFile(gl, "models/garfield/garfield.obj");
+
+            M_red = new Material();
+            M_red.setDiffuseColor([1.0, 0.0, 0.0, 1.0]);
+            M_red.setAmbientColor([0.1, 0.0, 0.0, 1.0]);
+            M_red.setSpecularColor([1.0, 1.0, 1.0, 1.0]);
+            M_red.setSpecularPower(32.0);
+
+            cube.setMaterial(0, M_red);
+            cube.getSubmesh(0).materialIndex = 0;
+
             render();
         }
 
@@ -184,12 +198,12 @@
             cube.render(standardPipeline);
 
             texturePipeline.use();
-            gl.uniformMatrix4fv(texturePipeline.getUniformLocation("u_mProj"), false, camera.getProjectionMatrix());
+            /*gl.uniformMatrix4fv(texturePipeline.getUniformLocation("u_mProj"), false, camera.getProjectionMatrix());
             gl.uniformMatrix4fv(texturePipeline.getUniformLocation("u_mView"), false, camera.getViewMatrix());
 
             cubetx.setPosition([3.0, 0.0, 0.0]);
             cubetx.rotateY(yRotation + 0.25);
-            cubetx.render(texturePipeline);
+            cubetx.render(texturePipeline);*/
 
 
             garfield.then(function(staticMesh){

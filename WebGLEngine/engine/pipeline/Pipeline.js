@@ -1,6 +1,7 @@
 /**
  * Pipeline to create custom pipelines and techniques to render
  * @author César Himura
+ * @version 1.0
  */
 class Pipeline {
 
@@ -40,7 +41,7 @@ class Pipeline {
 
     /**
      * Vertex fomat to conect with the vertex shader
-     * @returns vertex format of the shader
+     * @returns {Dictionary} vertex format of the shader
      */
     getVertexFormat(){
         return this.vertexFormat;

@@ -20,6 +20,9 @@ function include(file) {
 
 }
 
+include("engine/Camera.js");
+include("engine/m4.js");
+include("engine/KeyCode.js");
 include("engine/StaticMesh.js");
 include("engine/Submesh.js");
 include("engine/Material.js");
@@ -199,7 +202,7 @@ include("engine/texture/Texture.js");
       //let obj = parseOBJFile(text);
 
       return obj;
-  }
+    }
 
     /**
      * Parse the contained of an obj file
@@ -367,7 +370,7 @@ include("engine/texture/Texture.js");
         geometries,
         materialLibs,
       };
-  }
+    }
 
   function parseMTL(text) {
     const materials = {};
@@ -644,7 +647,7 @@ function parseLib(textLib) {
    * @param {Float32Array} vertices Vertices of the model
    * @param {Uint16Array} indices Indices of the model
    * @param {dictionary} vertexFormat Vertex format of the model
-   * @returns the static mesh
+   * @returns {StaticMesh} the static mesh
    */
   function createMesh(gl, vertices, indices, vertexFormat){
     var mesh = new StaticMesh();
@@ -660,16 +663,18 @@ function parseLib(textLib) {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
 
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
     gl.bindVertexArray(null);
+
+    mesh.setVertexFormat(vertexFormat);
 
     var submesh = new Submesh();
     submesh.setVertexBuffer(vbo);
     submesh.setIndexBuffer(ibo);
     submesh.setNumIndices(indices.length);
-    submesh.setNumVertices(vertices.length);
+    submesh.setNumVertices(vertices.length / mesh.getVertexByRow());
     
-    mesh.setVertexFormat(vertexFormat);
-
     mesh.addSubmesh(submesh);
 
     return mesh;
@@ -701,6 +706,7 @@ function parseLib(textLib) {
     }
 
     var dicmat = {};
+    //var indexBufferMat = 1;
     for(var m in materials){
       const mat = materials[m];
 
@@ -713,13 +719,16 @@ function parseLib(textLib) {
       material.setTransparency(mat.d)
       material.setSpecularPower(mat.Ns);
       material.setOpticalDensity(mat.Ni);
+      //material.setIndexBuffer(indexBufferMat++);
 
       dicmat[material.getName()] = mesh.getNumMaterials();
-    
-      if(mat.map_Kd !== undefined) {
+      
+      if(mat.map_Kd !== undefined && mat.map_Kd != "") {
         var texture = createTexture(gl, basePath + mat.map_Kd, true);
         
         material.setDiffuseTextureIndex(mesh.getNumTextures());
+        material.hasTexture = true;
+        
         mesh.addTexture(texture);
       }
 
@@ -777,6 +786,7 @@ function parseLib(textLib) {
 
     var image = new Image();
     image.src = filename;
+    debugger;
     image.onload = function(){
       var gltex = gl.createTexture();
       gl.bindTexture(gl.TEXTURE_2D , gltex);

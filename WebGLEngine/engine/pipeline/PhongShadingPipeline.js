@@ -43,6 +43,7 @@ class PhongShadingPipeline extends Pipeline {
                 float opticalDensity; 
                 float roughness;
                 float metallness;
+                int hasTexture;
             };
 
             struct DirectionalLight
@@ -143,10 +144,11 @@ class PhongShadingPipeline extends Pipeline {
                 
                 float specFactor = 0.0f;
                 
-                if(specularPower == 1.0f)
+                if(specularPower > 1.0f)
                     specFactor = pow(max(dot(R, viewDirection), 0.0), specularPower);
 
                 vec4 specLighting = color * specularMaterial * specFactor;
+                
                 return vec4(specLighting.xyz, 1.0f);
             }
 
@@ -268,9 +270,9 @@ class PhongShadingPipeline extends Pipeline {
             }
 
             void main(){
-                vec3 normalWV = normalize((u_mView * vec4(normalize(o_normalWV), 0.0f)).xyz);
-
                 camera.mWorldView = u_mView * u_mModel;
+
+                vec3 normalWV = normalize((camera.mWorldView * vec4(normalize(o_normalWV), 0.0f)).xyz);
 
                 camera.cameraPosWV = camera.mWorldView * vec4(u_camera_position, 1.0f);
 	            vec4 viewDirection = camera.cameraPosWV - vec4(o_positionWV, 1.0f);
@@ -303,7 +305,11 @@ class PhongShadingPipeline extends Pipeline {
                     lighting.ambient += l.ambient;
                 }
 
-                color = texture(u_sampler0, vec2(o_texcoord.x, o_texcoord.y)) * (lighting.diffuse + lighting.specular + lighting.ambient);
+                if(mat.hasTexture > 0)
+                    color = texture(u_sampler0, vec2(o_texcoord.x, o_texcoord.y)) * (lighting.diffuse + lighting.specular + lighting.ambient);
+                else
+                    color = lighting.diffuse + lighting.specular + lighting.ambient;
+
                 //color = sl.color;
                 //color = lighting.diffuse;
             }
@@ -381,5 +387,15 @@ class PhongShadingPipeline extends Pipeline {
      */
     getVertexFormat(){
         return this.vertexFormat;
+    }
+
+    /**
+     * Set a light in the shader
+     * @param {DirectionalLight | PointLight | SpotLight} light 
+     * @param {string} uniformvar Name of the uniform variable
+     */
+    setLight(light, uniformvar){
+        gl.bindBuffer(gl.UNIFORM_BUFFER, light.getBuffer());
+        gl.uniformBlockBinding(this.getProgram(), gl.getUniformBlockIndex(this.getProgram(), uniformvar), light.getIndexBuffer());
     }
 }
