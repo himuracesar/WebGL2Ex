@@ -310,8 +310,7 @@ class PhongShadingPipeline extends Pipeline {
                 else
                     color = lighting.diffuse + lighting.specular + lighting.ambient;
 
-                //color = sl.color;
-                //color = lighting.diffuse;
+                //color = mat.diffuseColor;
             }
         `;
     
@@ -394,8 +393,7 @@ class PhongShadingPipeline extends Pipeline {
      * @param {DirectionalLight | PointLight | SpotLight} light 
      * @param {string} uniformvar Name of the uniform variable
      */
-    setLight(light, uniformvar){
-        gl.bindBuffer(gl.UNIFORM_BUFFER, light.getBuffer());
-        gl.uniformBlockBinding(this.getProgram(), gl.getUniformBlockIndex(this.getProgram(), uniformvar), light.getIndexBuffer());
+    setLight(light){
+        gl.bindBufferBase(gl.UNIFORM_BUFFER, light.getBindingPoint(), light.getBuffer(this, "u_directional_light"));
     }
 }

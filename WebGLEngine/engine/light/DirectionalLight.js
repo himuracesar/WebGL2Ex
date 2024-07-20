@@ -11,7 +11,8 @@ class DirectionalLight {
 	    this.direction = [1.0, -1.0, -1.0, 0.0];
 	    this.enabled = true;
 	    this.intensity = 1.0;
-        this.indexBuffer = 1;
+        this.indexBuffer = -1;
+        this.bindingPoint = -1;
     }
 
     /**
@@ -87,39 +88,49 @@ class DirectionalLight {
     }
 
     /**
-     * Set the index buffer
-     * @param {int} index 
+     * Set the binding point for uniform buffer object
+     * @param {int} bp binding point
      */
-    setIndexBuffer(index){
-        this.indexBuffer = index;
+    setBindingPoint(bp){
+        this.bindingPoint = bp;
     }
 
     /**
-     * Update the buffer
+     * Get the binding point
+     * @returns the binding point of the uniform buffer object
      */
-    updateBuffer(){
-        if(this.buffer == null){
-            this.buffer = webGLengine.createBuffer(gl);
-        }
-
-        gl.bindBufferBase(gl.UNIFORM_BUFFER, this.indexBuffer, this.buffer);
-        // Upload data:
-        //console.log("enabled:: " + this.isEnabled() ? 1 : 0);
-        gl.bufferData(gl.UNIFORM_BUFFER, new Float32Array([
-            this.direction[0], this.direction[1], this.direction[2], this.direction[3],
-            this.color[0], this.color[1], this.color[2], this.color[3],
-            this.enabled ? 1 : 0,
-            this.intensity,
-            0, 0 //padding
-        ]), gl.DYNAMIC_DRAW);
+    getBindingPoint(){
+        return this.bindingPoint;
     }
 
-     /**
+    /**
      * Get a uniform buffer to send the information about material to shader
+     * @param pipeline Pipeline where the uniform block is
+     * @param nameUbo Name of the uniform block in the program of the pipeline
      * @returns {WebGLBuffer} Uniform buffer to send the information to shader
      */
-    getBuffer(){
-       this.updateBuffer();
+    getBuffer(pipeline, nameUbo){
+        if(this.bindingPoint == -1){
+            console.log("binding point in directional light = " + this.bindingPoint);
+            return null;
+        }
+
+        if(this.buffer == null){
+            this.buffer = webGLengine.createBuffer(gl);
+            gl.bindBufferBase(gl.UNIFORM_BUFFER, this.bindingPoint, this.buffer);
+            gl.bufferData(gl.UNIFORM_BUFFER, new Float32Array([
+                this.direction[0], this.direction[1], this.direction[2], this.direction[3],
+                this.color[0], this.color[1], this.color[2], this.color[3],
+                this.enabled ? 1 : 0,
+                this.intensity,
+                0, 0 //padding
+            ]), gl.DYNAMIC_DRAW);
+
+            this.indexBuffer = gl.getUniformBlockIndex(pipeline.getProgram(), nameUbo);
+            gl.uniformBlockBinding(pipeline.getProgram(), this.indexBuffer, this.bindingPoint);
+
+            gl.bindBuffer(gl.UNIFORM_BUFFER, null);
+        }
 
         return this.buffer;
     }

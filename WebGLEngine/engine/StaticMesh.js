@@ -53,30 +53,32 @@ class StaticMesh {
             gl.bindBuffer(gl.ARRAY_BUFFER, this.submeshes[i].getVertexBuffer());
             
             /**
-             * It's important vertexAttribPointer and enableVertexAttribArray are inside of bindVertexArray to correct render
+             * It's important vertexAttribPointer and enableVertexAttribArray are inside of bindVertexArray to rendering in a correct way
              */
             var offset = 0;
             for (const [key, value] of Object.entries(this.vertexFormat)) {
                 //console.log(key, value);
-                gl.vertexAttribPointer(pipeline.getAttributeLocation(key), value, gl.FLOAT, gl.FALSE, this.vertexByRow * Float32Array.BYTES_PER_ELEMENT, offset * Float32Array.BYTES_PER_ELEMENT);
+                gl.vertexAttribPointer(
+                    pipeline.getAttributeLocation(key), 
+                    value, 
+                    gl.FLOAT, 
+                    gl.FALSE, 
+                    this.vertexByRow * Float32Array.BYTES_PER_ELEMENT, 
+                    offset * Float32Array.BYTES_PER_ELEMENT
+                );
+
                 gl.enableVertexAttribArray(pipeline.getAttributeLocation(key));
 
                 offset += value;
             }
 
-            //Material
-            /*gl.bindBufferBase(
-                gl.UNIFORM_BUFFER,
-                0,
-                this.materials[this.submeshes[i].materialIndex].getBuffer());*/
-
-            //console.log(gl.getUniformBlockIndex(pipeline.getProgram(), 'u_material'));
             debugger;
             if(this.submeshes[i].materialIndex > -1){
-                if(gl.getUniformBlockIndex(pipeline.getProgram(), "u_material") !== undefined){
-                    gl.bindBuffer(gl.UNIFORM_BUFFER, this.materials[this.submeshes[i].materialIndex].getBuffer());
-                    gl.uniformBlockBinding(pipeline.getProgram(), gl.getUniformBlockIndex(pipeline.getProgram(), "u_material"), this.materials[this.submeshes[i].materialIndex].getIndexBuffer());
-                }
+                gl.bindBufferBase(
+                        gl.UNIFORM_BUFFER, 
+                        this.materials[this.submeshes[i].materialIndex].getBindingPoint(), 
+                        this.materials[this.submeshes[i].materialIndex].getBuffer(pipeline, "u_material")
+                );
 
                 var iSampler = 0;
                 while(pipeline.getUniformLocation("u_sampler" + iSampler) !== undefined && this.materials[this.submeshes[i].materialIndex].hasTexture() ){
@@ -97,7 +99,6 @@ class StaticMesh {
             if(this.submeshes[i].getNumIndices() > 0){
                 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.submeshes[i].getIndexBuffer());
                 gl.drawElements(gl.TRIANGLES, this.submeshes[i].getNumIndices(), gl.UNSIGNED_SHORT, 0);
-                //gl.getError(); 
             } else {
                 gl.drawArrays(gl.TRIANGLES, 0, this.submeshes[i].getNumVertices());
             }
@@ -107,6 +108,7 @@ class StaticMesh {
             }
         }
 
+        gl.bindBuffer(gl.UNIFORM_BUFFER, null);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
         gl.bindTexture(gl.TEXTURE_2D, null);

@@ -706,7 +706,6 @@ function parseLib(textLib) {
     }
 
     var dicmat = {};
-    //var indexBufferMat = 1;
     for(var m in materials){
       const mat = materials[m];
 
@@ -719,7 +718,8 @@ function parseLib(textLib) {
       material.setTransparency(mat.d)
       material.setSpecularPower(mat.Ns);
       material.setOpticalDensity(mat.Ni);
-      //material.setIndexBuffer(indexBufferMat++);
+
+      material.setBindingPoint(0);
 
       dicmat[material.getName()] = mesh.getNumMaterials();
       
@@ -786,7 +786,7 @@ function parseLib(textLib) {
 
     var image = new Image();
     image.src = filename;
-    debugger;
+    
     image.onload = function(){
       var gltex = gl.createTexture();
       gl.bindTexture(gl.TEXTURE_2D , gltex);

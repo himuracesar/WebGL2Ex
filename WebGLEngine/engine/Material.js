@@ -21,7 +21,8 @@ class Material {
         this.roughness = 0.0;
         this.metallness = 0.0;
         this._hasTexture = false;
-        this.indexBuffer = 0;
+        this.indexBuffer = -1;
+        this.bindingPoint = -1;
     }
 
     /**
@@ -137,14 +138,6 @@ class Material {
     }
 
     /**
-     * Set the index buffer
-     * @param {int} index Index
-     */
-    setIndexBuffer(index){
-        this.indexBuffer = index;
-    }
-
-    /**
      * Get the index buffer
      * @returns {int} The index buffer
      */
@@ -168,14 +161,36 @@ class Material {
     }
 
     /**
+     * Set the binding point to the uniform buffer object
+     * @param {int} bindingPoint Binding point
+     */
+    setBindingPoint(bindingPoint){
+        this.bindingPoint = bindingPoint;
+    }
+
+    /**
+     * Get the binding point of the uniform buffer object
+     * @returns the binding point
+     */
+    getBindingPoint(){
+        return this.bindingPoint;
+    }
+
+    /**
      * Get a uniform buffer to send the information about material to shader
+     * @param pipeline Pipeline where the uniform block is
+     * @param nameUbo Name of the uniform block in the program of the pipeline
      * @returns {WebGLBuffer} Uniform buffer to send the information to shader
      */
-    getBuffer(){
+    getBuffer(pipeline, nameUbo){
+        if(this.bindingPoint == -1){
+            console.log("binding point = " + this.bindingPoint);
+            return null;
+        }
+
         if(this.buffer == null){
             this.buffer = webGLengine.createBuffer(gl);
-            //gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffer);
-            gl.bindBufferBase(gl.UNIFORM_BUFFER, this.indexBuffer, this.buffer);
+            gl.bindBufferBase(gl.UNIFORM_BUFFER, this.bindingPoint, this.buffer);
             gl.bufferData(gl.UNIFORM_BUFFER, new Float32Array([
                 this.diffuseColor[0], this.diffuseColor[1], this.diffuseColor[2], this.diffuseColor[3],
                 this.specularColor[0], this.specularColor[1], this.specularColor[2], this.specularColor[3],
@@ -189,6 +204,11 @@ class Material {
                 this._hasTexture ? 1 : 0, 
                 0, 0 //padding
             ]), gl.DYNAMIC_DRAW);
+
+            this.indexBuffer = gl.getUniformBlockIndex(pipeline.getProgram(), nameUbo);
+            gl.uniformBlockBinding(pipeline.getProgram(), this.indexBuffer, this.bindingPoint);
+
+            gl.bindBuffer(gl.UNIFORM_BUFFER, null);
         }
 
         return this.buffer;
