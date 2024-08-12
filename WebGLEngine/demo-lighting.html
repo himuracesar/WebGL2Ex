@@ -9,10 +9,16 @@
     <script type="text/javascript" src="engine/pipeline/PhongShadingPipeline.js"></script>
     <script type="text/javascript" src="engine/pipeline/TexturePipeline.js"></script>
     <script type="text/javascript" src="engine/light/DirectionalLight.js"></script>
+    <script type="text/javascript" src="engine/light/PointLight.js"></script>
+    <script type="text/javascript" src="engine/light/SpotLight.js"></script>
 
 </head>
 <body onload="start();">
-    <canvas width="800" height="600" id="webGLcanvas"></canvas>
+    <!--canvas id="webGLcanvas"-->
+    <canvas id="webGLcanvas" width="800" height="600">
+        Your browser does not support the HTML5 canvas element.
+    </canvas>
+    
 
     <script type="text/javascript">
         var gl;
@@ -31,6 +37,8 @@
         var texturePipeline;
 
         var directionalLight;
+        var pointLight;
+        var spotLight;
 
         function start(){
             canvas = document.getElementById("webGLcanvas");
@@ -38,7 +46,7 @@
 
             camera = new Camera(gl);
             camera.setPosition([40.0, 50.0, 140.0]);
-            camera.setSpeed(0.75);
+            camera.setSpeed(0.95);
 
             phongPipeline = new PhongShadingPipeline(gl);
             texturePipeline = new TexturePipeline(gl);
@@ -48,7 +56,7 @@
 
             //----------- Cube mesh ------------------
             // position (3), texcoord (2), normal (3)
-            var cubevertices = new Float32Array([
+            /*var cubevertices = new Float32Array([
                 //Front
                 -1.0, -1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, //0
                  1.0, -1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, //1
@@ -79,6 +87,39 @@
                  1.0, -1.0, -1.0, 1.0, 1.0, 0.0, -1.0, 0.0, //21
                  1.0, -1.0,  1.0, 1.0, 0.0, 0.0, -1.0, 0.0, //22
                 -1.0, -1.0,  1.0, 0.0, 0.0, 0.0, -1.0, 0.0  //23
+            ]);*/
+
+            var cubevertices = new Float32Array([
+                //Front
+                -15.0, -15.0, 15.0, 0.0, 1.0, 0.0, 0.0, 1.0, //0
+                 15.0, -15.0, 15.0, 1.0, 1.0, 0.0, 0.0, 1.0, //1
+                 15.0,  15.0, 15.0, 1.0, 0.0, 0.0, 0.0, 1.0, //2
+                -15.0,  15.0, 15.0, 0.0, 0.0, 0.0, 0.0, 1.0, //3
+                //Right
+                 15.0, -15.0,  15.0, 0.0, 1.0, 1.0, 0.0, 0.0, //4
+                 15.0, -15.0, -15.0, 1.0, 1.0, 1.0, 0.0, 0.0, //5
+                 15.0,  15.0, -15.0, 1.0, 0.0, 1.0, 0.0, 0.0, //6
+                 15.0,  15.0,  15.0, 0.0, 0.0, 1.0, 0.0, 0.0, //7
+                //Back
+                 15.0, -15.0, -15.0, 0.0, 1.0, 0.0, 0.0, -1.0, //8
+                -15.0, -15.0, -15.0, 1.0, 1.0, 0.0, 0.0, -1.0, //9
+                -15.0,  15.0, -15.0, 1.0, 0.0, 0.0, 0.0, -1.0, //10
+                 15.0,  15.0, -15.0, 0.0, 0.0, 0.0, 0.0, -1.0, //11
+                //Left
+                -15.0, -15.0, -15.0, 0.0, 1.0, -1.0, 0.0, 0.0, //12
+                -15.0, -15.0,  15.0, 1.0, 1.0, -1.0, 0.0, 0.0, //12
+                -15.0,  15.0,  15.0, 1.0, 0.0, -1.0, 0.0, 0.0, //14
+                -15.0,  15.0, -15.0, 0.0, 0.0, -1.0, 0.0, 0.0, //15
+                //Top
+                -15.0,  15.0,  15.0, 0.0, 1.0, 0.0, 1.0, 0.0, //16
+                 15.0,  15.0,  15.0, 1.0, 1.0, 0.0, 1.0, 0.0, //17
+                 15.0,  15.0, -15.0, 1.0, 0.0, 0.0, 1.0, 0.0, //18
+                -15.0,  15.0, -15.0, 0.0, 0.0, 0.0, 1.0, 0.0, //19
+                //Bottom
+                -15.0, -15.0, -15.0, 0.0, 1.0, 0.0, -1.0, 0.0, //20
+                 15.0, -15.0, -15.0, 1.0, 1.0, 0.0, -1.0, 0.0, //21
+                 15.0, -15.0,  15.0, 1.0, 0.0, 0.0, -1.0, 0.0, //22
+                -15.0, -15.0,  15.0, 0.0, 0.0, 0.0, -1.0, 0.0  //22
             ]);
 
             var indices = new Uint16Array([
@@ -99,12 +140,13 @@
             cube = webGLengine.createMesh(gl, cubevertices, indices, phongPipeline.getVertexFormat());
 
             material = new Material();
-            material.setDiffuseColor([1.0, 0.0, 0.0, 1.0]);
-            material.setAmbientColor([0.1, 0.0, 0.0, 1.0]);
+            material.setDiffuseColor([1.0, 1.0, 1.0, 1.0]);
+            material.setAmbientColor([0.5, 0.0, 0.0, 1.0]);
             material.setSpecularColor([1.0, 1.0, 1.0, 1.0]);
             material.setSpecularPower(32.0);
             material.setBindingPoint(0);
             material.setName("Red Mat");
+            material.setHasTexture(false);
 
             cube.setMaterial(0, material);
             cube.getSubmesh(0).materialIndex = 0;
@@ -117,24 +159,18 @@
             mat.setSpecularColor([1.0, 1.0, 1.0, 1.0]);
             mat.setSpecularPower(64.0);
             mat.setBindingPoint(0);
+            mat.setHasTexture(false);
             mat.setName("Gray Mat");
 
             cube2.setMaterial(0, mat);
             cube2.getSubmesh(0).materialIndex = 0;
 
-            //fn = webGLengine.createMeshByObjFile(gl, "models/platform.obj");
-            //fn = webGLengine.createMeshByObjFile(gl, "models/sphere.obj");
-            //torus = webGLengine.createMeshByObjFile(gl, "models/torus.obj");
-
             var fnSphere = webGLengine.createMeshByObjFile(gl, "models/sphere.obj");
             fnSphere.then(function(staticMesh){
-                debugger;
                 sphere = staticMesh;
-                sphere.setMaterial(0, material);
-                //staticMesh.setMaterial(0, material);
+                sphere.setMaterial(0, material)
             });
 
-            
             var fnFloor = webGLengine.createMeshByObjFile(gl, "models/platform.obj");
             fnFloor.then(function(staticMesh){
                 floor = staticMesh;
@@ -142,6 +178,40 @@
 
             directionalLight = new DirectionalLight();
             directionalLight.setBindingPoint(1);
+            directionalLight.setEnabled(false);
+
+            pointLight = new PointLight();
+            pointLight.setPosition([-50.0, 40.0, 0.0]);
+            pointLight.setBindingPoint(2);
+            pointLight.setEnabled(true);
+            pointLight.setRange(80);
+            pointLight.setColor([1.0, 1.0, 1.0, 1.0]);
+            pointLight.setLinealAttenuation(0.125);
+            //pointLight.setConstantAttenuation(0.2);
+            //pointLight.setQuadraticAttenuation(0.003);
+            pointLight.setIntensity(2.5);
+
+            spotLight = new SpotLight();
+            spotLight.setPosition([0.0, 70.0, 0.0]);
+            spotLight.setDirection([0.0, -1.0, 0.0]);
+            //spotLight.setColor([0.971, 0.939, 1.0, 1.0]);
+            spotLight.setColor([0.0, 0.0, 1.0, 1.0]);
+            spotLight.setEnabled(true);
+            spotLight.setSpotAngle(webGLengine.degreeToRadian(20.0));
+            //spotLight.setInnerAngle(30.0);
+            //spotLight.setExternAngle(30.0);
+            spotLight.setIntensity(100.0);
+            spotLight.setRange(100.0);
+            spotLight.setConstantAttenuation(2.0);
+            spotLight.setLinealAttenuation(0.250);
+            spotLight.setQuadraticAttenuation(0.0);
+            spotLight.setAngleX(0.0);
+            spotLight.setAngleY(0.0);
+            spotLight.setAngleZ(0.0);
+            spotLight.setBindingPoint(3);
+
+            // Register function (event handler) to be called on a mouse press
+            canvas.onmousedown = function(ev){ click(ev); };
 
             render();
         }
@@ -165,7 +235,19 @@
                 camera.pitch(-0.01);
         }
 
+        function click(ev) {
+            var x = ev.clientX; // x coordinate of a mouse pointer
+            var y = ev.clientY; // y coordinate of a mouse pointer
+            var rect = ev.target.getBoundingClientRect() ;
+
+            x = ((x - rect.left) - canvas.width/2)/(canvas.width/2);
+            y = (canvas.height/2 - (y - rect.top))/(canvas.height/2);
+
+            console.log("(" + x + "," + y + ")");
+        }
+
         function render(){
+            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
             gl.clearColor(0.4, 0.6, 0.9, 1.0);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -186,24 +268,27 @@
             gl.uniform3fv(phongPipeline.getUniformLocation("u_camera_position"), camera.getPosition());
 
             phongPipeline.setLight(directionalLight, "u_directional_light");
+            phongPipeline.setLight(pointLight, "u_point_light");
+            phongPipeline.setLight(spotLight, "u_spot_light");
            
             if(sphere !== undefined){
+                sphere.setPosition([-40.0, 7.0, 0.0]);
                 sphere.render(phongPipeline);
             }
 
             if(floor !== undefined){
-                floor.setPosition([0.0, -50.0, 0.0]);
+                floor.setPosition([0.0, -15.0, 0.0]);
                 floor.render(phongPipeline);
             }
-
-            cube.setScale([15.0, 15.0, 15.0]);
-            cube.setPosition([0.0, 0.0, -150.0]);
+            
+            //cube.setScale([15.0, 15.0, 15.0]);
+            cube2.setPosition([40.0, 0.0, -20.0]);
+            cube2.render(phongPipeline);
+            
+            //cube2.setScale([15.0, 15.0, 15.0]);
+            cube.setPosition([-120.0, 0.0, 0.0]);
             cube.render(phongPipeline);
             
-            cube2.setScale([15.0, 15.0, 15.0]);
-            cube2.setPosition([50.0, 0.0, -150.0]);
-            cube2.render(phongPipeline);
-
             requestAnimationFrame(render);
         }
 

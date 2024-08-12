@@ -718,7 +718,6 @@ function parseLib(textLib) {
       material.setTransparency(mat.d)
       material.setSpecularPower(mat.Ns);
       material.setOpticalDensity(mat.Ni);
-
       material.setBindingPoint(0);
 
       dicmat[material.getName()] = mesh.getNumMaterials();
@@ -860,6 +859,35 @@ function parseLib(textLib) {
     return color;
   }
 
+  /**
+   * Get the content of shader file
+   * @param {string} fileName Path and name of the file
+   * @returns {string} The content of the file
+   */
+  function loadShaderFromFile(fileName) {
+    var request = new XMLHttpRequest();
+    debugger;
+    request.onreadystatechange = function() {
+      if (request.readyState === 4 && request.status !== 404) { 
+        return request.responseText; 
+      }
+    }
+
+    request.open('GET', fileName, true); // Create a request to acquire the file
+    request.send();                      // Send the request
+  }
+
+  /*
+  function readTextFile(fileName){
+    return fetch(fileName)
+      .then((res) => res.text())
+      .then((text) => {
+        // do something with "text"
+        debugger;
+      })
+      .catch((e) => console.error(e));
+  }*/
+
   function ImageProcess(filename){
     return new Promise((resolve, reject) => {
         let img = new Image()
@@ -888,7 +916,9 @@ function parseLib(textLib) {
         createTexture : createTexture,
         //Functions
         rgbToHex : rgbToHex,
-        hexToRgb : hexToRgb
+        hexToRgb : hexToRgb,
+        loadShaderFromFile : loadShaderFromFile
+        //readTextFile : readTextFile
     }
 
     })

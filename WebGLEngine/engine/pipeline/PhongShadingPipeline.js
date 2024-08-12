@@ -21,10 +21,11 @@ class PhongShadingPipeline extends Pipeline {
 
                 o_positionWV = (u_mView * u_mModel * vec4(in_position, 1.0)).xyz;
                 o_normalWV = in_normal;
+                //o_normalWV = (u_mView * u_mModel * vec4(in_normal, 0.0)).xyz;
                 o_texcoord = in_texcoord;
             }
         `;
-
+        
         var fragmentShaderSrc = `#version 300 es
             precision mediump float;
 
@@ -52,6 +53,8 @@ class PhongShadingPipeline extends Pipeline {
                 vec4 color;
                 int enabled;
                 float intensity;
+                float padding1;
+                float padding2;
             };
 
             struct PointLight
@@ -64,6 +67,8 @@ class PhongShadingPipeline extends Pipeline {
                 float range;
                 int enabled;
                 float intensity;
+                float padding1;
+                float padding2;
             };
 
             struct SpotLight
@@ -186,9 +191,9 @@ class PhongShadingPipeline extends Pipeline {
             {
                 Lighting lighting;
 
-                lighting.ambient = vec4(0.0f, 0.0f, 0.0f, 0.0f);
-                lighting.diffuse = vec4(0.0f, 0.0f, 0.0f, 0.0f);
-                lighting.specular = vec4(0.0f, 0.0f, 0.0f, 0.0f);
+                lighting.ambient = vec4(0.0f, 0.0f, 0.0f, 1.0f);
+                lighting.diffuse = vec4(0.0f, 0.0f, 0.0f, 1.0f);
+                lighting.specular = vec4(0.0f, 0.0f, 0.0f, 1.0f);
 
                 vec3 lightPosWV = (camera.mWorldView * pl.position).xyz;
 
@@ -270,7 +275,7 @@ class PhongShadingPipeline extends Pipeline {
             }
 
             void main(){
-                camera.mWorldView = u_mView * u_mModel;
+                camera.mWorldView = u_mView;
 
                 vec3 normalWV = normalize((camera.mWorldView * vec4(normalize(o_normalWV), 0.0f)).xyz);
 
@@ -290,16 +295,14 @@ class PhongShadingPipeline extends Pipeline {
                 }
 
                 if(pl.enabled > 0){
-                    Lighting l;
-                    l = ComputePointLight(pl, mat, o_positionWV, normalize(o_normalWV), normalize(viewDirection.xyz));
+                    Lighting l = ComputePointLight(pl, mat, o_positionWV, normalize(o_normalWV), normalize(viewDirection.xyz));
                     lighting.diffuse += l.diffuse;
                     lighting.specular += l.specular;
                     lighting.ambient += l.ambient;
                 }
 
                 if(sl.enabled > 0){
-                    Lighting l;
-                    l = ComputeSpotLight(sl, mat, o_positionWV, normalize(o_normalWV), normalize(viewDirection.xyz));
+                    Lighting l = ComputeSpotLight(sl, mat, o_positionWV, normalize(o_normalWV), normalize(viewDirection.xyz));
                     lighting.diffuse += l.diffuse;
                     lighting.specular += l.specular;
                     lighting.ambient += l.ambient;
@@ -310,12 +313,12 @@ class PhongShadingPipeline extends Pipeline {
                 else
                     color = lighting.diffuse + lighting.specular + lighting.ambient;
 
-                //color = mat.diffuseColor;
+                //color = vec4(normalWV, 1.0);
             }
         `;
     
         let vertexFormat = { "in_position" : 3, "in_texcoord" : 2, "in_normal" : 3 };
-
+        
         super(gl, vertexShaderSrc, fragmentShaderSrc, vertexFormat);
 
         let attributes = new Map();
@@ -393,7 +396,7 @@ class PhongShadingPipeline extends Pipeline {
      * @param {DirectionalLight | PointLight | SpotLight} light 
      * @param {string} uniformvar Name of the uniform variable
      */
-    setLight(light){
-        gl.bindBufferBase(gl.UNIFORM_BUFFER, light.getBindingPoint(), light.getBuffer(this, "u_directional_light"));
+    setLight(light, uniformvar){
+        gl.bindBufferBase(gl.UNIFORM_BUFFER, light.getBindingPoint(), light.getBuffer(this, uniformvar));
     }
 }

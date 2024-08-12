@@ -72,7 +72,6 @@ class StaticMesh {
                 offset += value;
             }
 
-            debugger;
             if(this.submeshes[i].materialIndex > -1){
                 gl.bindBufferBase(
                         gl.UNIFORM_BUFFER, 
@@ -81,7 +80,7 @@ class StaticMesh {
                 );
 
                 var iSampler = 0;
-                while(pipeline.getUniformLocation("u_sampler" + iSampler) !== undefined && this.materials[this.submeshes[i].materialIndex].hasTexture() ){
+                while(pipeline.getUniformLocation("u_sampler" + iSampler) !== undefined && this.materials[this.submeshes[i].materialIndex].hasTexture()){
                     if(this.textures[this.materials[this.submeshes[i].materialIndex].diffuseTextureIndex].getTexture() == null)
                         break;
 

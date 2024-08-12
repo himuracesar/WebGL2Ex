@@ -16,6 +16,7 @@ struct Material
     float opticalDensity; 
     float roughness;
     float metallness;
+    int hasTexture;
 };
 
 struct DirectionalLight
@@ -24,6 +25,8 @@ struct DirectionalLight
     vec4 color;
     int enabled;
     float intensity;
+    float padding1;
+    float padding2;
 };
 
 struct PointLight
@@ -36,6 +39,8 @@ struct PointLight
     float range;
     int enabled;
     float intensity;
+    float padding1;
+    float padding2;
 };
 
 struct SpotLight
@@ -116,10 +121,11 @@ vec4 GetSpecularLighting(vec3 light, vec3 normal, vec3 viewDirection, vec4 color
     
     float specFactor = 0.0f;
     
-    if(specularPower == 1.0f)
+    if(specularPower > 1.0f)
         specFactor = pow(max(dot(R, viewDirection), 0.0), specularPower);
 
     vec4 specLighting = color * specularMaterial * specFactor;
+    
     return vec4(specLighting.xyz, 1.0f);
 }
 
@@ -157,9 +163,9 @@ Lighting ComputePointLight(PointLight pl, Material material, vec3 position, vec3
 {
     Lighting lighting;
 
-    lighting.ambient = vec4(0.0f, 0.0f, 0.0f, 0.0f);
-    lighting.diffuse = vec4(0.0f, 0.0f, 0.0f, 0.0f);
-    lighting.specular = vec4(0.0f, 0.0f, 0.0f, 0.0f);
+    lighting.ambient = vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    lighting.diffuse = vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    lighting.specular = vec4(0.0f, 0.0f, 0.0f, 1.0f);
 
     vec3 lightPosWV = (camera.mWorldView * pl.position).xyz;
 
@@ -241,9 +247,9 @@ Lighting ComputeSpotLight(SpotLight sl, Material material, vec3 position, vec3 n
 }
 
 void main(){
-    vec3 normalWV = normalize((u_mView * vec4(normalize(o_normalWV), 0.0f)).xyz);
+    camera.mWorldView = u_mView;
 
-    camera.mWorldView = u_mView * u_mModel;
+    vec3 normalWV = normalize((camera.mWorldView * vec4(normalize(o_normalWV), 0.0f)).xyz);
 
     camera.cameraPosWV = camera.mWorldView * vec4(u_camera_position, 1.0f);
     vec4 viewDirection = camera.cameraPosWV - vec4(o_positionWV, 1.0f);
@@ -261,22 +267,23 @@ void main(){
     }
 
     if(pl.enabled > 0){
-        Lighting l;
-        l = ComputePointLight(pl, mat, o_positionWV, normalize(o_normalWV), normalize(viewDirection.xyz));
+        Lighting l = ComputePointLight(pl, mat, o_positionWV, normalize(o_normalWV), normalize(viewDirection.xyz));
         lighting.diffuse += l.diffuse;
         lighting.specular += l.specular;
         lighting.ambient += l.ambient;
     }
 
     if(sl.enabled > 0){
-        Lighting l;
-        l = ComputeSpotLight(sl, mat, o_positionWV, normalize(o_normalWV), normalize(viewDirection.xyz));
+        Lighting l = ComputeSpotLight(sl, mat, o_positionWV, normalize(o_normalWV), normalize(viewDirection.xyz));
         lighting.diffuse += l.diffuse;
         lighting.specular += l.specular;
         lighting.ambient += l.ambient;
     }
 
-    color = texture(u_sampler0, vec2(o_texcoord.x, o_texcoord.y)) * (lighting.diffuse + lighting.specular + lighting.ambient);
-    //color = sl.color;
-    //color = lighting.diffuse;
+    if(mat.hasTexture > 0)
+        color = texture(u_sampler0, vec2(o_texcoord.x, o_texcoord.y)) * (lighting.diffuse + lighting.specular + lighting.ambient);
+    else
+        color = lighting.diffuse + lighting.specular + lighting.ambient;
+
+    //color = vec4(normalWV, 1.0);
 }

@@ -21,7 +21,8 @@ class SpotLight{
 		this.angleZ;
         this.intensity = 1.0;
         this.enabled = true;
-        this.indexBuffer = 1;
+        this.indexBuffer = -1;
+        this.bindingPoint = -1;
     }
 
     /**
@@ -273,48 +274,59 @@ class SpotLight{
     }
 
     /**
-     * Set the index buffer
-     * @param {int} index 
+     * Set the binding point for uniform buffer object
+     * @param {int} bp binding point
      */
-    setIndexBuffer(index){
-        this.indexBuffer = index;
+    setBindingPoint(bp){
+        this.bindingPoint = bp;
     }
 
     /**
-     * Update the light buffer
+     * Get the binding point
+     * @returns the binding point of the uniform buffer object
      */
-    updateBuffer(){
-        if(this.buffer == null){
-            this.buffer = webGLengine.createBuffer(gl);
+    getBindingPoint(){
+        return this.bindingPoint;
+    }
+
+    /**
+     * Get a uniform buffer to send the information about material to shader
+     * @param pipeline Pipeline where the uniform block is
+     * @param nameUbo Name of the uniform block in the program of the pipeline
+     * @returns {WebGLBuffer} Uniform buffer to send the information to shader
+     */
+    getBuffer(pipeline, nameUbo){
+        if(this.bindingPoint == -1){
+            console.log("binding point in point light = " + this.bindingPoint);
+            return null;
         }
 
-        gl.bindBufferBase(gl.UNIFORM_BUFFER, this.indexBuffer, this.buffer);
-        // Upload data:
-        gl.bufferData(gl.UNIFORM_BUFFER, new Float32Array([
-            this.position[0], this.position[1], this.position[2], 1.0,
-            this.direction[0], this.direction[1], this.direction[2], 0.0,
-            this.color[0], this.color[1], this.color[2], this.color[3],
-            this.kc,
-            this.kl,
-            this.kq,
-            this.range,
-            this.enabled,
-            this.spotAngle,
-            this.spotInnerAngle,
-            this.spotExternAngle,
-            this.intensity,
-            this.angleX,
-            this.angleY,
-            this.angleZ
-        ]), gl.DYNAMIC_DRAW);
-    }
+        if(this.buffer == null){
+            this.buffer = webGLengine.createBuffer(gl);
+            gl.bindBufferBase(gl.UNIFORM_BUFFER, this.bindingPoint, this.buffer);
+            gl.bufferData(gl.UNIFORM_BUFFER, new Float32Array([
+                this.position[0], this.position[1], this.position[2], 1.0,
+                this.direction[0], this.direction[1], this.direction[2], 0.0,
+                this.color[0], this.color[1], this.color[2], this.color[3],
+                this.kc,
+                this.kl,
+                this.kq,
+                this.range,
+                this.enabled,
+                this.spotAngle,
+                this.spotInnerAngle,
+                this.spotExternAngle,
+                this.intensity,
+                this.angleX,
+                this.angleY,
+                this.angleZ
+            ]), gl.DYNAMIC_DRAW);
 
-    /**
-     * Get the light buffer
-     * @returns {WebGLBuffer} light buffer
-     */
-    getBuffer(){
-       this.updateBuffer();
+            this.indexBuffer = gl.getUniformBlockIndex(pipeline.getProgram(), nameUbo);
+            gl.uniformBlockBinding(pipeline.getProgram(), this.indexBuffer, this.bindingPoint);
+
+            gl.bindBuffer(gl.UNIFORM_BUFFER, null);
+        }
 
         return this.buffer;
     }
