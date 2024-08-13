@@ -110,10 +110,17 @@ include("engine/texture/Texture.js");
      * @param {HTMLCanvasElement} canvas The canvas to resize.
      * @param {number} [multiplier] amount to multiply by.
      *    Pass in window.devicePixelRatio for native pixels.
+     * 
      * @return {boolean} true if the canvas was resized.
      * @memberOf module:webgl-utils
      */
-    function resizeCanvasToDisplaySize(canvas, multiplier) {
+    function resizeCanvasToDisplaySize(canvas, multiplier, fullscreen) {
+      if(fullscreen){
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        return true;
+      }
+
       multiplier = multiplier || 1;
       const width  = canvas.clientWidth  * multiplier | 0;
       const height = canvas.clientHeight * multiplier | 0;
@@ -122,6 +129,7 @@ include("engine/texture/Texture.js");
         canvas.height = height;
         return true;
       }
+
       return false;
     }
 
@@ -180,7 +188,7 @@ include("engine/texture/Texture.js");
     /**
      * Create buffer
      * @param {WebGL2RenderingContext} gl Context of WebGL to render
-     * @returns 
+     * @returns The buffer created
      */
     function createBuffer(gl){
       var buffer = gl.createBuffer();

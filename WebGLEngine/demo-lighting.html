@@ -15,7 +15,7 @@
 </head>
 <body onload="start();">
     <!--canvas id="webGLcanvas"-->
-    <canvas id="webGLcanvas" width="800" height="600">
+    <canvas id="webGLcanvas" width="1300" height="900">
         Your browser does not support the HTML5 canvas element.
     </canvas>
     
@@ -24,6 +24,12 @@
         var gl;
         var canvas;
         var camera;
+
+        var x = 0;
+        var y = 0;
+        var lastX = 0;
+        var lastY = 0;
+        var dragging = false;
 
         var floor;
         var sphere;
@@ -51,8 +57,14 @@
             phongPipeline = new PhongShadingPipeline(gl);
             texturePipeline = new TexturePipeline(gl);
 
-            window.addEventListener("keydown", onKeyDown.bind(this));
-            window.addEventListener("keyup", onKeyUp.bind(this));
+            /*window.addEventListener("keydown", onKeyDown.bind(this));
+            window.addEventListener("keyup", onKeyUp.bind(this));*/
+
+            window.onkeydown = event => this.onKeyDown(event);
+            window.onkeyup = event => this.onKeyUp(event);
+            canvas.onmouseup = event => this.onMouseUp(event);
+            canvas.onmousedown = event => this.onMouseDown(event);
+            canvas.onmousemove = event => this.onMouseMove(event);
 
             //----------- Cube mesh ------------------
             // position (3), texcoord (2), normal (3)
@@ -178,7 +190,8 @@
 
             directionalLight = new DirectionalLight();
             directionalLight.setBindingPoint(1);
-            directionalLight.setEnabled(false);
+            directionalLight.setEnabled(true);
+            directionalLight.setColor([0.2, 0.2, 0.2, 1.0]);
 
             pointLight = new PointLight();
             pointLight.setPosition([-50.0, 40.0, 0.0]);
@@ -192,26 +205,25 @@
             pointLight.setIntensity(2.5);
 
             spotLight = new SpotLight();
-            spotLight.setPosition([0.0, 70.0, 0.0]);
+            spotLight.setPosition([0.0, 100.0, 0.0]);
             spotLight.setDirection([0.0, -1.0, 0.0]);
             //spotLight.setColor([0.971, 0.939, 1.0, 1.0]);
             spotLight.setColor([0.0, 0.0, 1.0, 1.0]);
             spotLight.setEnabled(true);
-            spotLight.setSpotAngle(webGLengine.degreeToRadian(20.0));
+            spotLight.setSpotAngle(webGLengine.degreeToRadian(25.0));
             //spotLight.setInnerAngle(30.0);
             //spotLight.setExternAngle(30.0);
-            spotLight.setIntensity(100.0);
-            spotLight.setRange(100.0);
-            spotLight.setConstantAttenuation(2.0);
-            spotLight.setLinealAttenuation(0.250);
+            spotLight.setIntensity(50.0);
+            spotLight.setRange(200.0);
+            spotLight.setConstantAttenuation(0.125);
+            spotLight.setLinealAttenuation(1);
             spotLight.setQuadraticAttenuation(0.0);
             spotLight.setAngleX(0.0);
             spotLight.setAngleY(0.0);
             spotLight.setAngleZ(0.0);
             spotLight.setBindingPoint(3);
 
-            // Register function (event handler) to be called on a mouse press
-            canvas.onmousedown = function(ev){ click(ev); };
+            webGLengine.resizeCanvasToDisplaySize(canvas, 1, false);
 
             render();
         }
@@ -235,7 +247,12 @@
                 camera.pitch(-0.01);
         }
 
-        function click(ev) {
+        function onMouseUp(event) {
+            this.dragging = false;
+        }
+
+        function onMouseDown(ev) {
+            this.dragging = true;
             var x = ev.clientX; // x coordinate of a mouse pointer
             var y = ev.clientY; // y coordinate of a mouse pointer
             var rect = ev.target.getBoundingClientRect() ;
@@ -244,6 +261,23 @@
             y = (canvas.height/2 - (y - rect.top))/(canvas.height/2);
 
             console.log("(" + x + "," + y + ")");
+        }
+
+        function onMouseMove(){
+            this.lastX = this.x;
+            this.lastY = this.y;
+
+            this.x = event.clientX;
+            this.y = event.clientY;
+
+            if (!this.dragging) 
+                return;
+
+            const dx = this.x - this.lastX;
+            const dy = this.y - this.lastY;
+
+            camera.yaw(dx * camera.getSpeedRotation());
+            camera.pitch(dy * camera.getSpeedRotation());
         }
 
         function render(){

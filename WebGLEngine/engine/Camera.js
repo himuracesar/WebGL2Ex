@@ -18,6 +18,7 @@ class Camera {
         this.nearPlane = 0.1;
         this.farPlane = 1000.0;
         this.speed = 0.1;
+        this.speedRotation = 0.005;
         this.velocity = [0.0, 0.0, 0.0];
     }
 
@@ -118,6 +119,22 @@ class Camera {
      */
     setFarPlane(far){
         this.farPlane = far;
+    }
+
+    /**
+     * Set the speed rotation
+     * @param {float} v Velocity of speed
+     */
+    setSpeedRotation(v){
+        this.speedRotation = v;
+    }
+
+    /**
+     * Get the speed rotation of the camera
+     * @returns the speed rotation
+     */
+    getSpeedRotation(){
+        return this.speedRotation;
     }
 
     /**
