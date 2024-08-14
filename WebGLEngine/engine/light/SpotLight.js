@@ -23,6 +23,7 @@ class SpotLight{
         this.enabled = true;
         this.indexBuffer = -1;
         this.bindingPoint = -1;
+        this.hasChange = false;
     }
 
     /**
@@ -71,6 +72,7 @@ class SpotLight{
      */
     setColor(color){
         this.color = color;
+        this.hasChange = true;
     }
 
     /**
@@ -79,6 +81,7 @@ class SpotLight{
      */
     setPosition(position){
         this.position = position;
+        this.hasChange = true;
     }
 
     /**
@@ -87,6 +90,7 @@ class SpotLight{
      */
     setDirection(direction){
         this.direction = direction;
+        this.hasChange = true;
     }
 
     /**
@@ -95,6 +99,7 @@ class SpotLight{
      */
     setEnabled(enabled){
         this.enabled = enabled;
+        this.hasChange = true;
     }
 
     /**
@@ -103,6 +108,7 @@ class SpotLight{
      */
     setIntensity(intensity){
         this.intensity = intensity;
+        this.hasChange = true;
     }
 
     /**
@@ -135,6 +141,7 @@ class SpotLight{
      */
     setConstantAttenuation(kc){
         this.kc = kc;
+        this.hasChange = true;
     }
 
     /**
@@ -143,6 +150,7 @@ class SpotLight{
      */
     setLinealAttenuation(kl){
         this.kl = kl;
+        this.hasChange = true;
     }
 
     /**
@@ -151,6 +159,7 @@ class SpotLight{
      */
     setQuadraticAttenuation(kq){
         this.kq = kq;
+        this.hasChange = true;
     }
 
     /**
@@ -167,6 +176,7 @@ class SpotLight{
      */
     setRange(range){
         this.range = range;
+        this.hasChange = true;
     }
 
     /**
@@ -223,6 +233,7 @@ class SpotLight{
      */
     setSpotAngle(angle){
         this.spotAngle = angle;
+        this.hasChange = true;
     }
 
     /**
@@ -231,6 +242,7 @@ class SpotLight{
      */
     setInnerAngle(angle){
         this.spotAngle = angle;
+        this.hasChange = true;
     }
 
     /**
@@ -239,6 +251,7 @@ class SpotLight{
      */
     setExternAngle(angle){
         this.spotAngle = angle;
+        this.hasChange = true;
     }
 
     /**
@@ -247,6 +260,7 @@ class SpotLight{
      */
     setAngleX(angle){
         this.angleX = angle;
+        this.hasChange = true;
     }
 
     /**
@@ -255,6 +269,7 @@ class SpotLight{
      */
     setAngleY(angle){
         this.angleY = angle;
+        this.hasChange = true;
     }
 
     /**
@@ -263,6 +278,7 @@ class SpotLight{
      */
     setAngleZ(angle){
         this.angleZ = angle;
+        this.hasChange = true;
     }
 
     /**
@@ -301,7 +317,7 @@ class SpotLight{
             return null;
         }
 
-        if(this.buffer == null){
+        if(this.buffer == null || this.hasChange){
             this.buffer = webGLengine.createBuffer(gl);
             gl.bindBufferBase(gl.UNIFORM_BUFFER, this.bindingPoint, this.buffer);
             gl.bufferData(gl.UNIFORM_BUFFER, new Float32Array([
@@ -326,6 +342,8 @@ class SpotLight{
             gl.uniformBlockBinding(pipeline.getProgram(), this.indexBuffer, this.bindingPoint);
 
             gl.bindBuffer(gl.UNIFORM_BUFFER, null);
+
+            this.hasChange = false;
         }
 
         return this.buffer;

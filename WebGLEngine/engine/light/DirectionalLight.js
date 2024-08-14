@@ -13,6 +13,7 @@ class DirectionalLight {
 	    this.intensity = 1.0;
         this.indexBuffer = -1;
         this.bindingPoint = -1;
+        this.hasChange = false;
     }
 
     /**
@@ -53,6 +54,7 @@ class DirectionalLight {
      */
     setColor(color){
         this.color = color;
+        this.hasChange = true;
     }
 
     /**
@@ -61,6 +63,7 @@ class DirectionalLight {
      */
     setDirection(direction){
         this.direction = direction;
+        this.hasChange = true;
     }
 
     /**
@@ -69,6 +72,7 @@ class DirectionalLight {
      */
     setEnabled(enabled){
         this.enabled = enabled;
+        this.hasChange = true;
     }
 
     /**
@@ -77,6 +81,7 @@ class DirectionalLight {
      */
     setIntensity(intensity){
         this.intensity = intensity;
+        this.hasChange = true;
     }
 
     /**
@@ -115,7 +120,7 @@ class DirectionalLight {
             return null;
         }
 
-        if(this.buffer == null){
+        if(this.buffer == null || this.hasChange){
             this.buffer = webGLengine.createBuffer(gl);
             gl.bindBufferBase(gl.UNIFORM_BUFFER, this.bindingPoint, this.buffer);
             gl.bufferData(gl.UNIFORM_BUFFER, new Float32Array([
@@ -130,6 +135,8 @@ class DirectionalLight {
             gl.uniformBlockBinding(pipeline.getProgram(), this.indexBuffer, this.bindingPoint);
 
             gl.bindBuffer(gl.UNIFORM_BUFFER, null);
+
+            this.hasChange = false;
         }
 
         return this.buffer;

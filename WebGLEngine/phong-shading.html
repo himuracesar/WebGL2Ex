@@ -42,6 +42,9 @@
             phongPipeline = new PhongShadingPipeline(gl);
 
             directionalLight = new DirectionalLight();
+            directionalLight.setBindingPoint(1);
+            directionalLight.setEnabled(true);
+
             document.getElementById("directionalLight_dir_x").value = directionalLight.getDirection()[0];
             document.getElementById("directionalLight_dir_y").value = directionalLight.getDirection()[1];
             document.getElementById("directionalLight_dir_z").value = directionalLight.getDirection()[2];
@@ -55,7 +58,8 @@
             pointLight.setRange(100.0);
             pointLight.setLinealAttenuation(0.025);
             pointLight.setConstantAttenuation(0.1);
-            pointLight.setIndexBuffer(2);
+            pointLight.setBindingPoint(2);
+
             document.getElementById("pointLight_x").value = pointLight.getPosition()[0];
             document.getElementById("pointLight_y").value = pointLight.getPosition()[1];
             document.getElementById("pointLight_z").value = pointLight.getPosition()[2];
@@ -80,7 +84,8 @@
             spotLight.setRange(100);
             spotLight.setLinealAttenuation(0.025);
             spotLight.setConstantAttenuation(0.1);
-            spotLight.setIndexBuffer(3);
+            spotLight.setBindingPoint(3);
+
             document.getElementById("spotLight_x").value = spotLight.getPosition()[0];
             document.getElementById("spotLight_y").value = spotLight.getPosition()[1];
             document.getElementById("spotLight_z").value = spotLight.getPosition()[2];
@@ -127,6 +132,7 @@
         }
 
         function gui(){
+            debugger;
             directionalLight.setDirection([
                 document.getElementById("directionalLight_dir_x").value,
                 document.getElementById("directionalLight_dir_y").value,
@@ -190,20 +196,21 @@
 
             gl.depthFunc(gl.LEQUAL);
             gl.cullFace(gl.BACK);
-
+            
             console.log("Render");
 
             input();
             cameraInfo();
 
             phongPipeline.use();
+
             gl.uniformMatrix4fv(phongPipeline.getUniformLocation("u_mProj"), false, camera.getProjectionMatrix());
             gl.uniformMatrix4fv(phongPipeline.getUniformLocation("u_mView"), false, camera.getViewMatrix());
             gl.uniform3fv(phongPipeline.getUniformLocation("u_camera_position"), camera.getPosition());
 
-            phongPipeline.setLight(directionalLight, 'u_directional_light');
-            phongPipeline.setLight(pointLight, 'u_point_light');
-            phongPipeline.setLight(spotLight, 'u_spot_light');
+            phongPipeline.setLight(directionalLight, "u_directional_light");
+            phongPipeline.setLight(pointLight, "u_point_light");
+            phongPipeline.setLight(spotLight, "u_spot_light");
 
             garfield.then(function(staticMesh){
                 staticMesh.render(phongPipeline);

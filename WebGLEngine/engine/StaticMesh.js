@@ -78,7 +78,7 @@ class StaticMesh {
                         this.materials[this.submeshes[i].materialIndex].getBindingPoint(), 
                         this.materials[this.submeshes[i].materialIndex].getBuffer(pipeline, "u_material")
                 );
-
+                
                 var iSampler = 0;
                 while(pipeline.getUniformLocation("u_sampler" + iSampler) !== undefined && this.materials[this.submeshes[i].materialIndex].hasTexture()){
                     if(this.textures[this.materials[this.submeshes[i].materialIndex].diffuseTextureIndex].getTexture() == null)

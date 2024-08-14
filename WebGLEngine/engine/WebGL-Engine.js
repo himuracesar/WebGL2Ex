@@ -734,7 +734,7 @@ function parseLib(textLib) {
         var texture = createTexture(gl, basePath + mat.map_Kd, true);
         
         material.setDiffuseTextureIndex(mesh.getNumTextures());
-        material.hasTexture = true;
+        material.setHasTexture(true);
         
         mesh.addTexture(texture);
       }
