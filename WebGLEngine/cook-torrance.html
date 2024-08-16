@@ -1,0 +1,261 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cook Torrance - WebGL Engine</title>
+
+    <script type="text/javascript" src="engine/WebGL-Engine.js"></script>
+    <script type="text/javascript" src="engine/pipeline/Pipeline.js"></script>
+    <script type="text/javascript" src="engine/pipeline/TexturePipeline.js"></script>
+    <script type="text/javascript" src="engine/pipeline/CookTorrancePipeline.js"></script>
+    <script type="text/javascript" src="engine/light/DirectionalLight.js"></script>
+    <script type="text/javascript" src="engine/light/PointLight.js"></script>
+    <script type="text/javascript" src="engine/light/SpotLight.js"></script>
+
+</head>
+<body onload="start();">
+    <!--canvas id="webGLcanvas"-->
+    <canvas id="webGLcanvas" width="1300" height="900">
+        Your browser does not support the HTML5 canvas element.
+    </canvas>
+    
+    <script type="text/javascript">
+        var gl;
+        var canvas;
+        var camera;
+
+        var x = 0;
+        var y = 0;
+        var lastX = 0;
+        var lastY = 0;
+        var dragging = false;
+
+        //------------- Meshes -------------
+        var floor;
+        var sphere;
+
+        //------------- Textures -------------
+
+        //------------- Materials -------------
+        var m_red;
+        var m_blue;
+        var m_green;
+
+        //------------- Pipelines -------------
+        var texturePipeline;
+        var cookTorrancePipeline;
+
+        //------------- Lights -------------
+        var directionalLight;
+        var pointLight;
+        var spotLight;
+
+        function start(){
+            canvas = document.getElementById("webGLcanvas");
+            gl = webGLengine.initWebGL(canvas);
+
+            camera = new Camera(gl);
+            camera.setPosition([40.0, 100.0, 140.0]);
+            camera.setSpeed(0.95);
+
+            texturePipeline = new TexturePipeline(gl);
+            cookTorrancePipeline = new CookTorrancePipeline(gl);
+
+            window.onkeydown = event => this.onKeyDown(event);
+            window.onkeyup = event => this.onKeyUp(event);
+            canvas.onmouseup = event => this.onMouseUp(event);
+            canvas.onmousedown = event => this.onMouseDown(event);
+            canvas.onmousemove = event => this.onMouseMove(event);
+
+            m_red = new Material();
+            m_red.setDiffuseColor([1.0, 0.0, 0.0, 0.0]);
+            m_red.setAmbientColor([0.5, 0.0, 0.0, 1.0]);
+            m_red.setSpecularColor([1.0, 1.0, 1.0, 1.0]);
+            m_red.setSpecularPower(32.0);
+            m_red.setBindingPoint(0);
+            m_red.setName("M_RED");
+            m_red.setHasTexture(false);
+            m_red.setMetallness(0.5);
+            m_red.setRoughness(0.05);
+            m_red.setFresnel(0.1);
+
+            m_blue = new Material();
+            m_blue.setDiffuseColor([0.0, 0.0, 1.0, 0.0]);
+            m_blue.setAmbientColor([0.0, 0.0, 0.5, 1.0]);
+            m_blue.setSpecularColor([1.0, 1.0, 1.0, 1.0]);
+            m_blue.setSpecularPower(32.0);
+            m_blue.setBindingPoint(0);
+            m_blue.setName("M_BLUE");
+            m_blue.setHasTexture(false);
+            m_blue.setMetallness(0.5);
+            m_blue.setRoughness(0.2);
+            m_blue.setFresnel(0.5);
+
+            m_green = new Material();
+            m_green.setDiffuseColor([0.0, 1.0, 0.0, 0.0]);
+            m_green.setAmbientColor([0.0, 0.5, 0.0, 1.0]);
+            m_green.setSpecularColor([1.0, 1.0, 1.0, 1.0]);
+            m_green.setSpecularPower(32.0);
+            m_green.setBindingPoint(0);
+            m_green.setName("M_GREEN");
+            m_green.setHasTexture(false);
+            m_green.setMetallness(0.5);
+            m_green.setRoughness(0.5);
+            m_green.setFresnel(0.5);
+
+            var fnFloor = webGLengine.createMeshByObjFile(gl, "models/floor_1000x1000.obj");
+            fnFloor.then(function(staticMesh){
+                floor = staticMesh;
+                floor.getMaterial(0).setDiffuseColor([1.0, 1.0, 1.0, 1.0]);
+                floor.getMaterial(0).setSpecularColor([0.0, 0.0, 0.0, 1.0]);
+                floor.getMaterial(0).setFresnel(0.0);
+                floor.getMaterial(0).setRoughness(1.0);
+            });
+
+            var fnSphere = webGLengine.createMeshByObjFile(gl, "models/sphere_50x50.obj");
+            fnSphere.then(function(staticMesh){
+                sphere = staticMesh;
+                sphere.setMaterial(0, m_red);
+            });
+
+            directionalLight = new DirectionalLight();
+            directionalLight.setBindingPoint(1);
+            directionalLight.setEnabled(true);
+            directionalLight.setColor([1.0, 1.0, 1.0, 1.0]);
+
+            pointLight = new PointLight();
+            pointLight.setPosition([0.0, 50.0, 0.0]);
+            pointLight.setBindingPoint(2);
+            pointLight.setEnabled(true);
+            pointLight.setRange(80);
+            pointLight.setColor([1.0, 1.0, 1.0, 1.0]);
+            pointLight.setLinealAttenuation(0.125);
+            pointLight.setConstantAttenuation(0.2);
+            pointLight.setQuadraticAttenuation(0.003);
+            pointLight.setIntensity(5.5);
+
+            spotLight = new SpotLight();
+            spotLight.setPosition([0.0, 100.0, 0.0]);
+            spotLight.setDirection([0.0, -1.0, 0.0]);
+            spotLight.setColor([0.971, 0.939, 1.0, 1.0]);
+            spotLight.setColor([0.0, 0.0, 1.0, 1.0]);
+            spotLight.setEnabled(false);
+            spotLight.setSpotAngle(webGLengine.degreeToRadian(25.0));
+            //spotLight.setInnerAngle(30.0);
+            //spotLight.setExternAngle(30.0);
+            spotLight.setIntensity(50.0);
+            spotLight.setRange(200.0);
+            spotLight.setConstantAttenuation(0.125);
+            spotLight.setLinealAttenuation(1);
+            spotLight.setQuadraticAttenuation(0.0);
+            spotLight.setAngleX(0.0);
+            spotLight.setAngleY(0.0);
+            spotLight.setAngleZ(0.0);
+            spotLight.setBindingPoint(3);
+
+            webGLengine.resizeCanvasToDisplaySize(canvas, 1, false);
+
+            render();
+        }
+
+        function input(){
+            if(keypress[KeyCode.W])
+                camera.moveForward(1);
+            if(keypress[KeyCode.S])
+                camera.moveForward(-1);
+            if(keypress[KeyCode.A])
+                camera.strafe(-1);
+            if(keypress[KeyCode.D])
+                camera.strafe(1);
+            if(keypress[KeyCode.Left])
+                camera.yaw(0.01);
+            if(keypress[KeyCode.Right])
+                camera.yaw(-0.01);
+            if(keypress[KeyCode.Up])
+                camera.pitch(0.01);
+            if(keypress[KeyCode.Down])
+                camera.pitch(-0.01);
+        }
+
+        function onMouseUp(event) {
+            this.dragging = false;
+        }
+
+        function onMouseDown(event) {
+            this.dragging = true;
+            var x = event.clientX; // x coordinate of a mouse pointer
+            var y = event.clientY; // y coordinate of a mouse pointer
+            var rect = event.target.getBoundingClientRect() ;
+
+            x = ((x - rect.left) - canvas.width/2)/(canvas.width/2);
+            y = (canvas.height/2 - (y - rect.top))/(canvas.height/2);
+        }
+
+        function onMouseMove(){
+            this.lastX = this.x;
+            this.lastY = this.y;
+
+            this.x = event.clientX;
+            this.y = event.clientY;
+
+            if (!this.dragging) 
+                return;
+
+            const dx = this.x - this.lastX;
+            const dy = this.y - this.lastY;
+
+            camera.yaw(dx * camera.getSpeedRotation());
+            camera.pitch(dy * camera.getSpeedRotation());
+        }
+
+        function render(){
+            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+            gl.clearColor(0.4, 0.6, 0.9, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            gl.enable(gl.DEPTH_TEST);
+            gl.enable(gl.CULL_FACE);
+
+            gl.depthFunc(gl.LEQUAL);
+            gl.cullFace(gl.BACK);
+
+            console.log("Render");
+
+            input();
+
+            cookTorrancePipeline.use();
+
+            gl.uniformMatrix4fv(cookTorrancePipeline.getUniformLocation("u_mProj"), false, camera.getProjectionMatrix());
+            gl.uniformMatrix4fv(cookTorrancePipeline.getUniformLocation("u_mView"), false, camera.getViewMatrix());
+            gl.uniform3fv(cookTorrancePipeline.getUniformLocation("u_camera_position"), camera.getPosition());
+
+            cookTorrancePipeline.setLight(directionalLight, "u_directional_light");
+            cookTorrancePipeline.setLight(pointLight, "u_point_light");
+            cookTorrancePipeline.setLight(spotLight, "u_spot_light");
+            
+            if(floor !== undefined){
+                floor.setPosition([0.0, 0.0, 0.0]);
+                floor.render(cookTorrancePipeline);
+            }
+
+            if(sphere !== undefined){
+                sphere.setPosition([-100.0, 50.0, 0.0]);
+                sphere.setMaterial(0, m_red);
+                sphere.render(cookTorrancePipeline);
+
+                sphere.setPosition([100.0, 50.0, 0.0]);
+                sphere.setMaterial(0, m_blue);
+                sphere.render(cookTorrancePipeline);
+
+                sphere.setPosition([0.0, 50.0, 150.0]);
+                sphere.setMaterial(0, m_green);
+                sphere.render(cookTorrancePipeline);
+            }
+
+            requestAnimationFrame(render);
+        }
+
+    </script>
+    
+</body>
+</html>

@@ -712,7 +712,7 @@ function parseLib(textLib) {
       let text = await response.text();
       materials = parseLib(text);
     }
-
+    
     var dicmat = {};
     for(var m in materials){
       const mat = materials[m];

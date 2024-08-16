@@ -20,9 +20,11 @@ class Material {
         this.bumpMapIndex = -1;
         this.roughness = 0.0;
         this.metallness = 0.0;
-        this._hasTexture = false;
+        this.fresnel = 0.0;
+        this.has_Texture = false;
         this.indexBuffer = -1;
         this.bindingPoint = -1;
+        this.hasChange = false;
     }
 
     /**
@@ -39,6 +41,7 @@ class Material {
      */
     setAmbientColor(color){
         this.ambientColor = color;
+        this.hasChange = true;
     }
 
     /**
@@ -47,6 +50,7 @@ class Material {
      */
     setDiffuseColor(color){
         this.diffuseColor = color;
+        this.hasChange = true;
     }
 
     /**
@@ -55,6 +59,7 @@ class Material {
      */
     setEmissiveColor(color){
         this.emissiveColor = color;
+        this.hasChange = true;
     }
 
     /**
@@ -63,6 +68,7 @@ class Material {
      */
     setSpecularColor(color){
         this.specularColor = color;
+        this.hasChange = true;
     }
 
     /**
@@ -71,6 +77,7 @@ class Material {
      */
     setSpecularPower(power){
         this.specularPower = power;
+        this.hasChange = true;
     }
 
     /**
@@ -79,6 +86,7 @@ class Material {
      */
     setTransparency(tr){
         this.transparency = tr;
+        this.hasChange = true;
     }
 
     /**
@@ -87,6 +95,7 @@ class Material {
      */
     setOpticalDensity(od){
         this.opticalDensity = od;
+        this.hasChange = true;
     }
 
     /**
@@ -95,6 +104,7 @@ class Material {
      */
     setDiffuseTextureIndex(index){
         this.diffuseTextureIndex = index;
+        this.hasChange = true;
     }
 
     /**
@@ -103,6 +113,7 @@ class Material {
      */
     setNormalMapIndex(index){
         this.normalMapIndex = index;
+        this.hasChange = true;
     }
 
     /**
@@ -111,6 +122,7 @@ class Material {
      */
     setBumpMapIndex(index){
         this.normalMapIndex = index;
+        this.hasChange = true;
     }
 
     /**
@@ -119,6 +131,7 @@ class Material {
      */
     setRoughness(roughness){
         this.roughness = roughness;
+        this.hasChange = true;
     }
 
     /**
@@ -127,6 +140,16 @@ class Material {
      */
     setMetallness(metallness){
         this.metallness = metallness;
+        this.hasChange = true;
+    }
+
+    /**
+     * Set the fresnel
+     * @param {float} fresnel 
+     */
+    setFresnel(fresnel){
+        this.fresnel = fresnel;
+        this.hasChange = true;
     }
 
     /**
@@ -150,14 +173,15 @@ class Material {
      * @returns {boolean} True if the material has texture
      */
     setHasTexture(b){
-        this._hasTexture = b;
+        this.has_Texture = b;
+        this.hasChange = true;
     }
 
     /**
      * @returns true If the material has texture false in the other hand
      */
     hasTexture(){
-        return this._hasTexture;
+        return this.has_Texture;
     }
 
     /**
@@ -188,7 +212,7 @@ class Material {
             return null;
         }
 
-        if(this.buffer == null){
+        if(this.buffer == null && this.hasChange){
             this.buffer = webGLengine.createBuffer(gl);
             gl.bindBufferBase(gl.UNIFORM_BUFFER, this.bindingPoint, this.buffer);
             gl.bufferData(gl.UNIFORM_BUFFER, new Float32Array([
@@ -201,14 +225,17 @@ class Material {
                 this.opticalDensity, 
                 this.roughness,
                 this.metallness,
-                this._hasTexture ? 1 : 0, 
-                0, 0 //padding
+                this.fresnel, 
+                this.has_Texture ? 1 : 0, 
+                0 //padding
             ]), gl.DYNAMIC_DRAW);
 
             this.indexBuffer = gl.getUniformBlockIndex(pipeline.getProgram(), nameUbo);
             gl.uniformBlockBinding(pipeline.getProgram(), this.indexBuffer, this.bindingPoint);
 
             gl.bindBuffer(gl.UNIFORM_BUFFER, null);
+
+            this.hasChange = false;
         }
 
         return this.buffer;
