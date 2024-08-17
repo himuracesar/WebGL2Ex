@@ -7,7 +7,7 @@ class SpotLight{
     constructor(){
         this.buffer = null;
         this.position = [0.0, 0.0, 0.0];
-        this.direction = [0.0, -1.0, 0.0];
+        this.direction = [0.0, -1.0, 0.0, 0.0];
         this.color = [1.0, 1.0, 1.0, 1.0];
         this.range = 1.0;
         this.kc = 0.0;
@@ -16,9 +16,9 @@ class SpotLight{
         this.spotAngle;
 		this.spotInnerAngle;
 		this.spotExternAngle;
-		this.angleX;
-		this.angleY;
-		this.angleZ;
+		this.angleX = 0.0;
+		this.angleY = 0.0;
+		this.angleZ = 0.0;
         this.intensity = 1.0;
         this.enabled = true;
         this.indexBuffer = -1;
@@ -261,6 +261,7 @@ class SpotLight{
     setAngleX(angle){
         this.angleX = angle;
         this.hasChange = true;
+        this.rotate();
     }
 
     /**
@@ -270,6 +271,7 @@ class SpotLight{
     setAngleY(angle){
         this.angleY = angle;
         this.hasChange = true;
+        this.rotate();
     }
 
     /**
@@ -279,6 +281,7 @@ class SpotLight{
     setAngleZ(angle){
         this.angleZ = angle;
         this.hasChange = true;
+        this.rotate();
     }
 
     /**
@@ -303,6 +306,14 @@ class SpotLight{
      */
     getBindingPoint(){
         return this.bindingPoint;
+    }
+
+    rotate(){
+        var mRot = m4.identity();
+        mRot = m4.multiply(mRot, m4.yRotation(this.angleY));
+        mRot = m4.multiply(mRot, m4.xRotation(this.angleX));
+        mRot = m4.multiply(mRot, m4.zRotation(this.angleZ));
+        this.direction = m4.transformDirection(mRot, this.direction);
     }
 
     /**

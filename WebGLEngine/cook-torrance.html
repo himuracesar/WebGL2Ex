@@ -6,7 +6,7 @@
 
     <script type="text/javascript" src="engine/WebGL-Engine.js"></script>
     <script type="text/javascript" src="engine/pipeline/Pipeline.js"></script>
-    <script type="text/javascript" src="engine/pipeline/TexturePipeline.js"></script>
+    <script type="text/javascript" src="engine/pipeline/SimplePipeline.js"></script>
     <script type="text/javascript" src="engine/pipeline/CookTorrancePipeline.js"></script>
     <script type="text/javascript" src="engine/light/DirectionalLight.js"></script>
     <script type="text/javascript" src="engine/light/PointLight.js"></script>
@@ -33,6 +33,8 @@
         //------------- Meshes -------------
         var floor;
         var sphere;
+        var sphereLight;
+        var coneLight;
 
         //------------- Textures -------------
 
@@ -42,7 +44,7 @@
         var m_green;
 
         //------------- Pipelines -------------
-        var texturePipeline;
+        var simplePipeline;
         var cookTorrancePipeline;
 
         //------------- Lights -------------
@@ -56,9 +58,9 @@
 
             camera = new Camera(gl);
             camera.setPosition([40.0, 100.0, 140.0]);
-            camera.setSpeed(0.95);
+            camera.setSpeed(1.2);
 
-            texturePipeline = new TexturePipeline(gl);
+            simplePipeline = new SimplePipeline(gl);
             cookTorrancePipeline = new CookTorrancePipeline(gl);
 
             window.onkeydown = event => this.onKeyDown(event);
@@ -103,6 +105,16 @@
             m_green.setRoughness(0.5);
             m_green.setFresnel(0.5);
 
+            var fnSphereLight = webGLengine.createMeshByObjFile(gl, "models/minisphere.obj");
+            fnSphereLight.then(function(staticMesh){
+                sphereLight = staticMesh;
+            });
+
+            var fnConeLight = webGLengine.createMeshByObjFile(gl, "models/minicone.obj");
+            fnConeLight.then(function(staticMesh){
+                coneLight = staticMesh;
+            });
+
             var fnFloor = webGLengine.createMeshByObjFile(gl, "models/floor_1000x1000.obj");
             fnFloor.then(function(staticMesh){
                 floor = staticMesh;
@@ -120,37 +132,37 @@
 
             directionalLight = new DirectionalLight();
             directionalLight.setBindingPoint(1);
-            directionalLight.setEnabled(true);
+            directionalLight.setEnabled(false);
             directionalLight.setColor([1.0, 1.0, 1.0, 1.0]);
 
             pointLight = new PointLight();
             pointLight.setPosition([0.0, 50.0, 0.0]);
             pointLight.setBindingPoint(2);
-            pointLight.setEnabled(true);
+            pointLight.setEnabled(false);
             pointLight.setRange(80);
             pointLight.setColor([1.0, 1.0, 1.0, 1.0]);
             pointLight.setLinealAttenuation(0.125);
             pointLight.setConstantAttenuation(0.2);
             pointLight.setQuadraticAttenuation(0.003);
-            pointLight.setIntensity(5.5);
+            pointLight.setIntensity(10.0);
 
             spotLight = new SpotLight();
-            spotLight.setPosition([0.0, 100.0, 0.0]);
-            spotLight.setDirection([0.0, -1.0, 0.0]);
-            spotLight.setColor([0.971, 0.939, 1.0, 1.0]);
+            spotLight.setPosition([0.0, 100.0, -50.0]);
+            spotLight.setDirection([0.0, -1.0, 0.0, 0.0]);
+            //spotLight.setColor([0.971, 0.939, 1.0, 1.0]);
             spotLight.setColor([0.0, 0.0, 1.0, 1.0]);
-            spotLight.setEnabled(false);
+            spotLight.setEnabled(true);
             spotLight.setSpotAngle(webGLengine.degreeToRadian(25.0));
             //spotLight.setInnerAngle(30.0);
             //spotLight.setExternAngle(30.0);
-            spotLight.setIntensity(50.0);
+            spotLight.setIntensity(1.0);
             spotLight.setRange(200.0);
             spotLight.setConstantAttenuation(0.125);
             spotLight.setLinealAttenuation(1);
             spotLight.setQuadraticAttenuation(0.0);
-            spotLight.setAngleX(0.0);
-            spotLight.setAngleY(0.0);
-            spotLight.setAngleZ(0.0);
+            spotLight.setAngleX(webGLengine.degreeToRadian(-10.0));
+            spotLight.setAngleY(webGLengine.degreeToRadian(0.0));
+            spotLight.setAngleZ(webGLengine.degreeToRadian(40.0));
             spotLight.setBindingPoint(3);
 
             webGLengine.resizeCanvasToDisplaySize(canvas, 1, false);
@@ -187,8 +199,8 @@
             var y = event.clientY; // y coordinate of a mouse pointer
             var rect = event.target.getBoundingClientRect() ;
 
-            x = ((x - rect.left) - canvas.width/2)/(canvas.width/2);
-            y = (canvas.height/2 - (y - rect.top))/(canvas.height/2);
+            x = ((x - rect.left) - canvas.width / 2) / (canvas.width / 2);
+            y = (canvas.height / 2 - (y - rect.top)) / (canvas.height / 2);
         }
 
         function onMouseMove(){
@@ -250,6 +262,30 @@
                 sphere.setPosition([0.0, 50.0, 150.0]);
                 sphere.setMaterial(0, m_green);
                 sphere.render(cookTorrancePipeline);
+            }
+
+            //------------------- Only for Debug -------------------
+            if(sphereLight !== undefined){
+                simplePipeline.use();
+                gl.uniformMatrix4fv(simplePipeline.getUniformLocation("u_mProj"), false, camera.getProjectionMatrix());
+                gl.uniformMatrix4fv(simplePipeline.getUniformLocation("u_mView"), false, camera.getViewMatrix());
+                
+                simplePipeline.setColor(pointLight.getColor());
+                sphereLight.setPosition(pointLight.getPosition());
+                sphereLight.render(simplePipeline);
+            }
+
+            if(coneLight !== undefined){
+                simplePipeline.use();
+                gl.uniformMatrix4fv(simplePipeline.getUniformLocation("u_mProj"), false, camera.getProjectionMatrix());
+                gl.uniformMatrix4fv(simplePipeline.getUniformLocation("u_mView"), false, camera.getViewMatrix());
+                
+                simplePipeline.setColor(spotLight.getColor());
+                coneLight.setPosition(spotLight.getPosition());
+                coneLight.rotateX(spotLight.getAngleX());
+                coneLight.rotateY(spotLight.getAngleY());
+                coneLight.rotateZ(spotLight.getAngleZ());
+                coneLight.render(simplePipeline);
             }
 
             requestAnimationFrame(render);
