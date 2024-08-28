@@ -7,7 +7,6 @@ class StaticMesh {
 
     /**
      * Create a Static Mesh
-     * @param {WebGL2RenderingContext} gl Context of WebGL to render
      */
     constructor(){
         //gl = gl;
@@ -247,6 +246,11 @@ class StaticMesh {
         this.materials[index] = material;
     }
 
+    /**
+     * Get a submesh
+     * @param {int} index 
+     * @returns {StaticMesh}
+     */
     getSubmesh(index){
         return this.submeshes[index];
     }

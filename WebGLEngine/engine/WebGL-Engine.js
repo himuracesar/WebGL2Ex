@@ -27,6 +27,8 @@ include("engine/StaticMesh.js");
 include("engine/Submesh.js");
 include("engine/Material.js");
 include("engine/texture/Texture.js");
+include("engine/bounding/BoundingVolume.js");
+include("engine/bounding/SphereBounding.js");
 
 (function(root, factory){
     if (typeof define === 'function' && define.amd) {
@@ -43,6 +45,11 @@ include("engine/texture/Texture.js");
     
       const topWindow = this;
 
+      /**
+       * Initialize WebGL 2
+       * @param {Canvas} canvas 
+       * @returns {WebGL2RenderingContext} Context of WebGL to render
+       */
       function initWebGL(canvas){
         var gl = canvas.getContext("webgl2");
         if(!gl) {
@@ -170,7 +177,7 @@ include("engine/texture/Texture.js");
     /**
      * Radians to degree
      * @param {float} r 
-     * @returns Angle in degree
+     * @returns {float} Angle in degree
      */
     function radianToDegree(r) {
       return r * 180 / Math.PI;
@@ -179,7 +186,7 @@ include("engine/texture/Texture.js");
     /**
      * Degree to radians
      * @param {float} d Angle in degree
-     * @returns Angle in radians
+     * @returns {float} Angle in radians
      */
     function degreeToRadian(d) {
       return d * Math.PI / 180;
@@ -188,7 +195,7 @@ include("engine/texture/Texture.js");
     /**
      * Create buffer
      * @param {WebGL2RenderingContext} gl Context of WebGL to render
-     * @returns The buffer created
+     * @returns {WebGLBuffer} The buffer created
      */
     function createBuffer(gl){
       var buffer = gl.createBuffer();
@@ -750,6 +757,8 @@ function parseLib(textLib) {
       var numVertices = obj.geometries[i].data.position.length / 3;
       var iTex = 0;
 
+      var vmin = [Number.MAX_VALUE, Number.MAX_VALUE, Number.MAX_VALUE];
+      var vmax = [Number.MIN_VALUE, Number.MIN_VALUE, Number.MIN_VALUE];
       for(var j = 0; j < obj.geometries[i].data.position.length; j += 3){
         vertices.push(obj.geometries[i].data.position[j]);
         vertices.push(obj.geometries[i].data.position[j + 1]);
@@ -759,7 +768,12 @@ function parseLib(textLib) {
         vertices.push(obj.geometries[i].data.normal[j]);
         vertices.push(obj.geometries[i].data.normal[j + 1]);
         vertices.push(obj.geometries[i].data.normal[j + 2]);
+
+        vmin = m4.vector3Min(vmin, [obj.geometries[i].data.position[j], obj.geometries[i].data.position[j + 1], obj.geometries[i].data.position[j + 2]]);
+				vmax = m4.vector3Max(vmax, [obj.geometries[i].data.position[j], obj.geometries[i].data.position[j + 1], obj.geometries[i].data.position[j + 2]]);
       }
+
+      var bounding = new SphereBounding(vmin, vmax);
 
       var vbo = webGLengine.createBuffer(gl);
       gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
@@ -769,6 +783,7 @@ function parseLib(textLib) {
       submesh.setVertexBuffer(vbo);
       submesh.setNumVertices(numVertices);
       submesh.setMaterialIndex(dicmat[obj.geometries[i].material]);
+      submesh.setBoundingVolume(bounding);
 
       mesh.addSubmesh(submesh);
     }

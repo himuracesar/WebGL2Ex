@@ -1419,6 +1419,38 @@
   
       return dst;
     }
+
+    /**
+     * Create a vector3 with the minimum values between two vector3
+     * @param {Vector3} a Vector3
+     * @param {Vector} b Vector3
+     * @returns {Vector3} Vector3 with minimum values
+     */
+    function vector3Min(a, b){
+      var vec3min = [0.0, 0.0, 0.0];
+
+      vec3min[0] = Math.min(a[0], b[0]);
+      vec3min[1] = Math.min(a[1], b[1]);
+      vec3min[2] = Math.min(a[2], b[2]);
+
+      return vec3min;
+    }
+
+    /**
+     * Create a vector3 with the maximum values between two vector3
+     * @param {Vector3} a Vector3
+     * @param {Vector} b Vector3
+     * @returns {Vector3} Vector3 with maximum values
+     */
+    function vector3Max(a, b){
+      var vec3max = [0.0, 0.0, 0.0];
+
+      vec3max[0] = Math.max(a[0], b[0]);
+      vec3max[1] = Math.max(a[1], b[1]);
+      vec3max[2] = Math.max(a[2], b[2]);
+
+      return vec3max;
+    }
   
     return {
       copy: copy,
@@ -1459,6 +1491,8 @@
       transformDirection: transformDirection,
       transformNormal: transformNormal,
       setDefaultType: setDefaultType,
+      vector3Min : vector3Min,
+      vector3Max : vector3Max
     };
   
   }));

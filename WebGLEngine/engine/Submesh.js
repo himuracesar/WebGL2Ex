@@ -10,6 +10,7 @@ class Submesh {
         this.numIndices = 0;
         this.numVertices = 0;
         this.materialIndex = -1;
+        this.bounding = null;
     }
 
     /**
@@ -82,5 +83,21 @@ class Submesh {
      */
     setMaterialIndex(index){
         this.materialIndex = index;
+    }
+
+    /**
+     * Set the bounding volume
+     * @param {BoundingVolume} bounding 
+     */
+    setBoundingVolume(bounding){
+        this.bounding = bounding;
+    }
+
+    /**
+     * Get the bounding volume of the mesh
+     * @returns {BoundingVolume} bounding
+     */
+    getBoundingVolume(){
+        return this.bounding;
     }
 }
