@@ -20,6 +20,16 @@ function include(file) {
 
 }
 
+const RenderMode = Object.freeze({
+  Points : 0x0000,
+  Lines : 0x0001,
+  LineLoop : 0x0002,
+  LineStrip : 0x0003,
+  Triangles : 0x0004,
+  TriangleStrip : 0x0005,
+  TriangleFan : 0x0006
+});
+
 include("engine/Camera.js");
 include("engine/m4.js");
 include("engine/KeyCode.js");

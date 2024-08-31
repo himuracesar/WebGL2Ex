@@ -29,8 +29,9 @@ class StaticMesh {
     /**
      * Draw the mesh with by indices or vertices it depends on the model
      * @param {Pipeline} pipeline Pipiline to render
+     * @param {RenderMode enum} mode Render mode. Triangles is the default mode.
      */
-    render(pipeline){
+    render(pipeline, mode = RenderMode.Triangles){
         
         pipeline.use();
 
@@ -96,7 +97,8 @@ class StaticMesh {
     
             if(this.submeshes[i].getNumIndices() > 0){
                 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.submeshes[i].getIndexBuffer());
-                gl.drawElements(gl.TRIANGLES, this.submeshes[i].getNumIndices(), gl.UNSIGNED_SHORT, 0);
+                //gl.drawElements(gl.LINE_LOOP, this.submeshes[i].getNumIndices(), gl.UNSIGNED_SHORT, 0)
+                gl.drawElements(mode, this.submeshes[i].getNumIndices(), gl.UNSIGNED_SHORT, 0);;
             } else {
                 gl.drawArrays(gl.TRIANGLES, 0, this.submeshes[i].getNumVertices());
             }
