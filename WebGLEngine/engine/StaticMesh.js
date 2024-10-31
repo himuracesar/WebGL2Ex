@@ -41,6 +41,8 @@ class StaticMesh {
         mModel = m4.multiply(mModel, m4.zRotation(this.zRotation));
         mModel = m4.multiply(mModel, m4.scaling(this.scale[0], this.scale[1], this.scale[2]));
 
+        //var mModel = m4.identity();
+
         this.forward = m4.transformVector(mModel, [0.0, 0.0, -1.0, 0.0]);
         this.right = m4.transformVector(mModel, [1.0, 0.0, 0.0, 0.0]);
         this.up = m4.transformVector(mModel, [0.0, 1.0, 0.0, 0.0]);

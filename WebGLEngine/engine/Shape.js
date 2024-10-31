@@ -4,6 +4,7 @@
  *  + Cube
  *  + Sphere
  *  + Grid
+ *  + Cylinder
  * @author César Himura
  * @version 1.0
  */
@@ -297,7 +298,17 @@ class Shape {
         return mesh;
     }
 
-    
+    /**
+     * Builds a cylinder mesh.
+     *      Values to create a cylinder
+     *          - slices {int} = Division of both caps
+     *          - stacks {int} = Division of body
+     *          - bottomRadio {float} = Bottom radio
+     *          - topRadio {float} = Top radio
+     *          - height {float} = Height
+     * @param {JSON object} descriptor Descriptor of the cylinder
+     * @returns {StaticMesh} Cylinder with vertex format { position: 3, texture coords: 2, normal: 3 }
+     */
     CreateCylinder(descriptor){
         //
         // Build Stacks.
@@ -310,6 +321,8 @@ class Shape {
         var ringCount = descriptor.stacks + 1;
 
         var numVerts = ringCount * (descriptor.slices + 1) + (descriptor.slices + 2) * 2;
+
+        var numVertices = 0;
 
         var _vertices = [];
 
@@ -345,6 +358,7 @@ class Shape {
                 //  dy/dv = -h
                 //  dz/dv = (r0-r1)*sin(t)
 
+                //position
                 _vertices.push(r * c);
                 _vertices.push(y);
                 _vertices.push(r * s);
@@ -358,12 +372,15 @@ class Shape {
                 var normal = m4.cross(T, B);
                 normal = m4.normalize(normal);
 
+                //uv
                 _vertices.push(j / descriptor.slices);
                 _vertices.push(1.0 - i / descriptor.stacks);
-
+                //normal
                 _vertices.push(normal[0]);
                 _vertices.push(normal[1]);
                 _vertices.push(normal[2]);
+
+                numVertices++;
             }
         }
 
@@ -387,9 +404,23 @@ class Shape {
                 _indices.push(i * ringVertexCount + j + 1);
             }
         }
+        
+        this.BuildCylinderTopCap(descriptor, _vertices, _indices, numVertices);
 
-        this.BuildCylinderTopCap(descriptor, _vertices, _indices);
-        this.BuildCylinderBottomCap(descriptor, _vertices, _indices);
+        /**
+         * JavaScript does not support parameter by reference but objects parameters. So we have to recalculate
+         * the exact number of vertices.
+         * The number 8 is the number of elements that belong to the vertex format
+         *  3 -> position
+         *  2 -> tex coordinates
+         *  3 -> normal
+         * The total sum is 8
+         * 
+         * To become this value dynamic is necessary to add the vertex format in the decriptor, read and sum it.
+         */
+        numVertices = _vertices.length / 8;
+
+        this.BuildCylinderBottomCap(descriptor, _vertices, _indices, numVertices);
 
         var vertices = new Float32Array(_vertices);
         var indices = new Uint16Array(_indices);
@@ -400,8 +431,15 @@ class Shape {
         return mesh;
     }
 
-    BuildCylinderTopCap(descriptor, vertices, indices){
-        var baseIndex = vertices.length - 1;
+    /**
+     * Builds the top cap of the cylinder
+     * @param {JSON object} descriptor Descriptor of the cylinder
+     * @param {Array} vertices List of vertices
+     * @param {Array} indices List of indices
+     * @param {int} numVertices Number of vertices in the moment no total pre-calculated
+     */
+    BuildCylinderTopCap(descriptor, vertices, indices, numVertices){
+        var baseIndex = numVertices;
 
         var y = 0.5 * descriptor.height;
         var theta = 2.0 * Math.PI / descriptor.slices;
@@ -417,11 +455,6 @@ class Shape {
             var u = x / descriptor.height + 0.5;
             var v = z / descriptor.height + 0.5;
 
-            // Scale down by the height to try and make top cap texture coord area
-			// proportional to base.
-			var u = x / descriptor.height + 0.5;
-			var v = z / descriptor.height + 0.5;
-
             //position
 			vertices.push(x);
 			vertices.push(y);
@@ -433,23 +466,21 @@ class Shape {
 			vertices.push(0.0);
 			vertices.push(1.0);
 			vertices.push(0.0);
-			
+
+            numVertices++;
         }
 
         //position
-        vertices.push(0.0);
-		vertices.push(y);
-		vertices.push(0.0);
+        vertices.push(0.0, y, 0.0);
         //uv
-		vertices.push(0.5);
-		vertices.push(0.5);
+		vertices.push(0.5, 0.5);
         //normal
-        vertices.push(0.0);
-		vertices.push(1.0);
-		vertices.push(0.0);
+        vertices.push(0.0, 1.0, 0.0);
+
+        numVertices++;
 
         // Index of center vertex.
-        var centerIndex = vertices.length - 1;
+        var centerIndex = numVertices - 1;
 
         for (var i = 0; i < descriptor.slices; ++i)
         {
@@ -459,11 +490,18 @@ class Shape {
         }
     }
 
-    BuildCylinderBottomCap(descriptor, vertices, indices){
+    /**
+     * Builds the top bottom of the cylinder
+     * @param {JSON object} descriptor Descriptor of the cylinder
+     * @param {Array} vertices List of vertices
+     * @param {Array} indices List of indices
+     * @param {int} numVertices Number of vertices in the moment no total pre-calculated
+     */
+    BuildCylinderBottomCap(descriptor, vertices, indices, numVertices){
         // 
         // Build bottom cap.
         //
-        var baseIndex = vertices.length - 1;
+        var baseIndex = numVertices;
         var y = -0.5 * descriptor.height;
 
         // vertices of ring
@@ -483,27 +521,30 @@ class Shape {
 			var u = x / descriptor.height + 0.5;
 			var v = z / descriptor.height + 0.5;
 
+            //position
 			vertices.push(x);
 			vertices.push(y);
 			vertices.push(z);
+            //texcoords
+            vertices.push(u);
+			vertices.push(v);
+            //normal
 			vertices.push(0.0);
 			vertices.push(-1.0);
 			vertices.push(0.0);
-			vertices.push(u);
-			vertices.push(v);
+			
+            numVertices++;
         }
 
-        vertices.push(0.0);
-		vertices.push(y);
-		vertices.push(0.0);
-		vertices.push(0.0);
-		vertices.push(-1.0);
-		vertices.push(0.0);
-		vertices.push(0.5);
-		vertices.push(0.5);
+        //position
+        vertices.push(0.0, y, 0.0);
+		//uv
+		vertices.push(0.5, 0.5);
+        //normal
+        vertices.push(0.0, -1.0, 0.0);
 
         // Cache the index of center vertex.
-        var centerIndex = vertices.length - 1;
+        var centerIndex = numVertices;
 
         for (var i = 0; i < descriptor.slices; ++i)
         {

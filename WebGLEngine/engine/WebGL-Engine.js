@@ -20,6 +20,9 @@ function include(file) {
 
 }
 
+/**
+ * Options to render an object
+ */
 const RenderMode = Object.freeze({
   Points : 0x0000,
   Lines : 0x0001,
@@ -28,6 +31,12 @@ const RenderMode = Object.freeze({
   Triangles : 0x0004,
   TriangleStrip : 0x0005,
   TriangleFan : 0x0006
+});
+
+const ProjectMode = Object.freeze({
+  Debug : 0,
+  Release : 1,
+  Development : 2
 });
 
 include("engine/Camera.js");

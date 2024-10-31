@@ -32,6 +32,8 @@
         var lastY = 0;
         var dragging = false;
 
+        var projectMode = ProjectMode.Development;
+
         //------------- Meshes -------------
         var floor;
         var sphere;
@@ -41,6 +43,7 @@
         var cubeProcedural;
         var grid;
         var cylinder;
+        var cone;
 
         //------------- Textures -------------
 
@@ -65,7 +68,7 @@
 
             camera = new Camera(gl);
             camera.setPosition([40.0, 100.0, 140.0]);
-            camera.setSpeed(1.2);
+            camera.setSpeed(2.0);
             camera.setFarPlane(4000.0);
 
             simplePipeline = new SimplePipeline(gl);
@@ -229,16 +232,26 @@
             grid.getSubmesh(0).materialIndex = 0;
 
             descriptor = {};
-            descriptor.slices = 6;
-            descriptor.stacks = 8;
-            descriptor.bottomRadio = 15.0;
-            descriptor.topRadio = 15.0;
-            descriptor.height = 6.0;
+            descriptor.slices = 10;
+            descriptor.stacks = 10;
+            descriptor.bottomRadio = 20.0;
+            descriptor.topRadio = 20.0;
+            descriptor.height = 100.0;
 
             cylinder = shape.CreateCylinder(descriptor);
             cylinder.setMaterial(0, m_yellow);
             cylinder.getSubmesh(0).materialIndex = 0;
 
+            descriptor = {};
+            descriptor.slices = 20;
+            descriptor.stacks = 20;
+            descriptor.bottomRadio = 40.0;
+            descriptor.topRadio = 1.0;
+            descriptor.height = 120.0;
+
+            cone = shape.CreateCylinder(descriptor);
+            cone.setMaterial(0, m_yellow);
+            cone.getSubmesh(0).materialIndex = 0;
 
             webGLengine.resizeCanvasToDisplaySize(canvas, 1, false);
             
@@ -303,7 +316,7 @@
             gl.enable(gl.DEPTH_TEST);
             gl.enable(gl.CULL_FACE);
 
-            gl.depthFunc(gl.LEQUAL);
+            //gl.depthFunc(gl.LEQUAL);
             gl.cullFace(gl.BACK);
 
             console.log("Render");
@@ -348,28 +361,36 @@
             grid.setPosition([0.0, 0.0, 0.0]);
             grid.render(cookTorrancePipeline, RenderMode.LineLoop);
 
-            //------------------- Only for Debug -------------------
-            if(sphereLight !== undefined){
-                simplePipeline.use();
-                gl.uniformMatrix4fv(simplePipeline.getUniformLocation("u_mProj"), false, camera.getProjectionMatrix());
-                gl.uniformMatrix4fv(simplePipeline.getUniformLocation("u_mView"), false, camera.getViewMatrix());
-                
-                simplePipeline.setColor(pointLight.getColor());
-                sphereLight.setPosition(pointLight.getPosition());
-                sphereLight.render(simplePipeline, RenderMode.Triangles);
-            }
+            cylinder.setPosition([-200.0, 50.0, -10.0]);
+            cylinder.render(cookTorrancePipeline, RenderMode.Triangles);
 
-            if(coneLight !== undefined){
-                simplePipeline.use();
-                gl.uniformMatrix4fv(simplePipeline.getUniformLocation("u_mProj"), false, camera.getProjectionMatrix());
-                gl.uniformMatrix4fv(simplePipeline.getUniformLocation("u_mView"), false, camera.getViewMatrix());
-                
-                simplePipeline.setColor(spotLight.getColor());
-                coneLight.setPosition(spotLight.getPosition());
-                coneLight.rotateX(spotLight.getAngleX());
-                coneLight.rotateY(spotLight.getAngleY());
-                coneLight.rotateZ(spotLight.getAngleZ());
-                coneLight.render(simplePipeline, RenderMode.Triangles);
+            cone.setPosition([250.0, 60.0, -10.0]);
+            cone.render(cookTorrancePipeline, RenderMode.Triangles);
+
+            //------------------- Only for Debug -------------------
+            if(projectMode == ProjectMode.Debug){
+                if(sphereLight !== undefined){
+                    simplePipeline.use();
+                    gl.uniformMatrix4fv(simplePipeline.getUniformLocation("u_mProj"), false, camera.getProjectionMatrix());
+                    gl.uniformMatrix4fv(simplePipeline.getUniformLocation("u_mView"), false, camera.getViewMatrix());
+                    
+                    simplePipeline.setColor(pointLight.getColor());
+                    sphereLight.setPosition(pointLight.getPosition());
+                    sphereLight.render(simplePipeline, RenderMode.Triangles);
+                }
+
+                if(coneLight !== undefined){
+                    simplePipeline.use();
+                    gl.uniformMatrix4fv(simplePipeline.getUniformLocation("u_mProj"), false, camera.getProjectionMatrix());
+                    gl.uniformMatrix4fv(simplePipeline.getUniformLocation("u_mView"), false, camera.getViewMatrix());
+                    
+                    simplePipeline.setColor(spotLight.getColor());
+                    coneLight.setPosition(spotLight.getPosition());
+                    coneLight.rotateX(spotLight.getAngleX());
+                    coneLight.rotateY(spotLight.getAngleY());
+                    coneLight.rotateZ(spotLight.getAngleZ());
+                    coneLight.render(simplePipeline, RenderMode.Triangles);
+                }
             }
 
             requestAnimationFrame(render);
