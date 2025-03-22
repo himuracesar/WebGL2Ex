@@ -39,15 +39,15 @@ const ProjectMode = Object.freeze({
   Development : 2
 });
 
-include("engine/Camera.js");
-include("engine/m4.js");
-include("engine/KeyCode.js");
-include("engine/StaticMesh.js");
-include("engine/Submesh.js");
-include("engine/Material.js");
-include("engine/texture/Texture.js");
-include("engine/bounding/BoundingVolume.js");
-include("engine/bounding/SphereBounding.js");
+include("/WebGLEngine/engine/Camera.js");
+include("/WebGLEngine/engine/m4.js");
+include("/WebGLEngine/engine/KeyCode.js");
+include("/WebGLEngine/engine/StaticMesh.js");
+include("/WebGLEngine/engine/Submesh.js");
+include("/WebGLEngine/engine/Material.js");
+include("/WebGLEngine/engine/texture/Texture.js");
+include("/WebGLEngine/engine/bounding/BoundingVolume.js");
+include("/WebGLEngine/engine/bounding/SphereBounding.js");
 
 (function(root, factory){
     if (typeof define === 'function' && define.amd) {
@@ -939,29 +939,61 @@ function parseLib(textLib) {
     });
   }
 
-    return {
-        initWebGL : initWebGL, 
-        createProgram : createProgram,
-        createShader : createShader,
-        resizeCanvasToDisplaySize : resizeCanvasToDisplaySize,
-        getAttributeLocation : getAttributeLocation,
-        getUniformLocation : getUniformLocation,
-        radianToDegree : radianToDegree,
-        degreeToRadian : degreeToRadian,
-        parseOBJ : parseOBJ,
-        loadFileObj : loadFileObj,
-        parseOBJFile : parseOBJFile,
-        createBuffer : createBuffer,
-        //Object Engine
-        createMesh : createMesh,
-        createMeshByObjFile : createMeshByObjFile,
-        createTexture : createTexture,
-        //Functions
-        rgbToHex : rgbToHex,
-        hexToRgb : hexToRgb,
-        loadShaderFromFile : loadShaderFromFile
-        //readTextFile : readTextFile
+  /**
+   * 
+   * @param {float} x 
+   * @param {float} y 
+   * @param {*} width 
+   * @param {*} height 
+   * @param {*} viewMatrix 
+   * @param {*} projectionMatrix 
+   * @returns 
+   */
+  function pickingRay(x, y, width, height, viewMatrix, projectionMatrix){
+    var xp =( 2.0 * x / width - 1.0) / projectionMatrix[0];
+    var yp =(-2.0 * y / height + 1.0) / projectionMatrix[5];
+
+    var direction = [xp, yp, 1.0];
+
+    var invViewMatrix = m4.inverse(viewMatrix);
+
+    var origin = [0.0, 0.0, 0.0];
+    origin = m4.transformPoint(invViewMatrix, origin);
+    direction = m4.transformDirection(invViewMatrix, direction);
+
+    var ray = {
+        origin : origin,
+        direction : direction
     }
 
-    })
+    return ray;
+  }
+
+  return {
+      initWebGL : initWebGL, 
+      createProgram : createProgram,
+      createShader : createShader,
+      resizeCanvasToDisplaySize : resizeCanvasToDisplaySize,
+      getAttributeLocation : getAttributeLocation,
+      getUniformLocation : getUniformLocation,
+      radianToDegree : radianToDegree,
+      degreeToRadian : degreeToRadian,
+      parseOBJ : parseOBJ,
+      loadFileObj : loadFileObj,
+      parseOBJFile : parseOBJFile,
+      createBuffer : createBuffer,
+      //Object Engine
+      createMesh : createMesh,
+      createMeshByObjFile : createMeshByObjFile,
+      createTexture : createTexture,
+      //Functions
+      rgbToHex : rgbToHex,
+      hexToRgb : hexToRgb,
+      loadShaderFromFile : loadShaderFromFile,
+      //readTextFile : readTextFile
+
+      pickingRay : pickingRay
+  }
+
+  })
 );
