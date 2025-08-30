@@ -1,27 +1,26 @@
 
 /**
- * Standard pipeline. The shaders only draw the position and color of the vertices.
- * This version works with instances.
+ * To draw the axis
  * @author César Himura
  * @version 1.0
  */
-class StandardPipeline_v2 extends Pipeline {
+class AxisPipeline extends Pipeline {
 
-    constructor(gl){
+    constructor(){
         var vertexShaderSrc = `#version 300 es
-            uniform mat4 u_mProj;
-            uniform mat4 u_mView;
-            //uniform mat4 u_mModel;
-
             layout(location=0) in vec3 in_position;
             layout(location=1) in vec4 in_color;
-            layout(location=2) in mat4 in_mModel;
+
+            uniform mat4 u_mProj;
+            uniform mat4 u_mView;
+            uniform mat4 u_mModel;
 
             out vec4 out_color;
 
             void main(){
-                gl_Position = u_mProj * u_mView * in_mModel * vec4(in_position, 1.0);
+                gl_Position = u_mProj * u_mView * u_mModel * vec4(in_position, 1.0);
                 out_color = in_color;
+                gl_PointSize = 8.0f;
             }
         `;
 
@@ -45,11 +44,9 @@ class StandardPipeline_v2 extends Pipeline {
         
         var in_position = webGLengine.getAttributeLocation(gl, this.getProgram(), "in_position");
         var in_color = webGLengine.getAttributeLocation(gl, this.getProgram(), "in_color");
-        var in_mModel = webGLengine.getAttributeLocation(gl, this.getProgram(), "in_mModel");
 
         attributes.set("in_position", in_position);
         attributes.set("in_color", in_color);
-        attributes.set("in_mModel", in_mModel);
 
         this.attributes = attributes;
 
@@ -57,11 +54,11 @@ class StandardPipeline_v2 extends Pipeline {
 
         var u_mProj = gl.getUniformLocation(this.getProgram(), "u_mProj");
         var u_mView = gl.getUniformLocation(this.getProgram(), "u_mView");
-        //var u_mModel = gl.getUniformLocation(this.getProgram(), "u_mModel");
+        var u_mModel = gl.getUniformLocation(this.getProgram(), "u_mModel");
 
         uniforms.set("u_mProj", u_mProj);
         uniforms.set("u_mView", u_mView);
-        //uniforms.set("u_mModel", u_mModel);
+        uniforms.set("u_mModel", u_mModel);
 
         this.uniforms = uniforms;
     }
@@ -105,6 +102,14 @@ class StandardPipeline_v2 extends Pipeline {
      */
     getVertexFormat(){
         return this.vertexFormat;
+    }
+
+    /**
+     * Set the uniform variable color in the shader
+     * @param {Vector4} color 
+     */
+    setUniformLocationColor(color){
+        gl.uniform4fv(this.getUniformLocation("u_color"), color);
     }
     
 }

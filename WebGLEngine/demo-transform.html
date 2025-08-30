@@ -1,0 +1,164 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transform - WebGL Engine</title>
+
+    <script type="text/javascript" src="engine/WebGL-Engine.js"></script>
+    <script type="text/javascript" src="engine/pipeline/Pipeline.js"></script>
+    <script type="text/javascript" src="engine/pipeline/SimplePipeline.js"></script>
+    <!--script type="text/javascript" src="engine/pipeline/AxisPipeline.js"></script-->
+
+    <script type="text/javascript" src="engine/Shape.js"></script>
+    <script type="text/javascript" src="engine/Transform.js"></script>
+
+</head>
+<body onload="start();">
+    <!--canvas id="webGLcanvas"-->
+    <canvas id="webGLcanvas" width="1300" height="900">
+        Your browser does not support the HTML5 canvas element.
+    </canvas>
+    
+    <script type="text/javascript">
+        var gl;
+        var canvas;
+        var camera;
+
+        var x = 0;
+        var y = 0;
+        var lastX = 0;
+        var lastY = 0;
+        var dragging = false;
+
+        var projectMode = ProjectMode.Development;
+
+        var transform;
+
+        //------------- Meshes -------------
+        var grid;
+
+        //------------- Pipelines -------------
+        var simplePipeline;
+
+        function start(){
+            canvas = document.getElementById("webGLcanvas");
+            gl = webGLengine.initWebGL(canvas);
+            
+            camera = new Camera(gl);
+            camera.setPosition([0.0, 50.0, 10.0]);
+            camera.setSpeed(5.0);
+            camera.setFarPlane(4000.0);
+
+            webGLengine.setActiveCamera(camera);
+
+            simplePipeline = new SimplePipeline(gl);
+
+            window.onkeydown = event => this.onKeyDown(event);
+            window.onkeyup = event => this.onKeyUp(event);
+            canvas.onmouseup = event => this.onMouseUp(event);
+            canvas.onmousedown = event => this.onMouseDown(event);
+            canvas.onmousemove = event => this.onMouseMove(event);
+
+            transform = new Transform();
+
+            //------------- Shapes -------------
+            var shape = new Shape();
+
+            var descriptor = {};
+            descriptor.delta = [100.0, 0.0, 100.0];
+            descriptor.numVertRows = 50;
+            descriptor.numVertCols = 50;
+            descriptor.position = [0.0, 0.0, 0.0];
+            descriptor.texScale = 1.0;
+            
+            grid = shape.CreateGrid(descriptor);
+
+            webGLengine.resizeCanvasToDisplaySize(canvas, 1, false);
+
+            render();
+        }
+
+        function input(){
+            if(keypress[KeyCode.W])
+                camera.moveForward(1);
+            if(keypress[KeyCode.S])
+                camera.moveForward(-1);
+            if(keypress[KeyCode.A])
+                camera.strafe(-1);
+            if(keypress[KeyCode.D])
+                camera.strafe(1);
+            if(keypress[KeyCode.Left])
+                camera.yaw(0.01);
+            if(keypress[KeyCode.Right])
+                camera.yaw(-0.01);
+            if(keypress[KeyCode.Up])
+                camera.pitch(0.01);
+            if(keypress[KeyCode.Down])
+                camera.pitch(-0.01);
+        }
+
+        function onMouseUp(event) {
+            this.dragging = false;
+        }
+
+        function onMouseDown(event) {
+            this.dragging = true;
+            var x = event.clientX; // x coordinate of a mouse pointer
+            var y = event.clientY; // y coordinate of a mouse pointer
+            var rect = event.target.getBoundingClientRect() ;
+
+            x = ((x - rect.left) - canvas.width / 2) / (canvas.width / 2);
+            y = (canvas.height / 2 - (y - rect.top)) / (canvas.height / 2);
+        }
+
+        function onMouseMove(){
+            this.lastX = this.x;
+            this.lastY = this.y;
+
+            this.x = event.clientX;
+            this.y = event.clientY;
+
+            if (!this.dragging) 
+                return;
+
+            const dx = this.x - this.lastX;
+            const dy = this.y - this.lastY;
+
+            camera.yaw(dx * camera.getSpeedRotation());
+            camera.pitch(dy * camera.getSpeedRotation());
+        }
+
+        function render(){
+            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+            gl.clearColor(0.4, 0.6, 0.9, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            gl.enable(gl.DEPTH_TEST);
+            //gl.enable(gl.CULL_FACE);
+
+            //gl.depthFunc(gl.LEQUAL);
+            gl.cullFace(gl.BACK);
+
+            console.log("Render");
+
+            input();
+
+            simplePipeline.use();
+            simplePipeline.setColor([1.0, 1.0, 1.0, 1.0]);
+
+            gl.uniformMatrix4fv(simplePipeline.getUniformLocation("u_mProj"), false, camera.getProjectionMatrix());
+            gl.uniformMatrix4fv(simplePipeline.getUniformLocation("u_mView"), false, camera.getViewMatrix());
+            gl.uniform3fv(simplePipeline.getUniformLocation("u_camera_position"), camera.getPosition());
+
+            grid.setPosition([0.25, 0.25, 0.25, 1.0]);
+            grid.render(simplePipeline, RenderMode.LineLoop);
+
+            transform.render();
+
+            requestAnimationFrame(render);
+        }
+
+    </script>
+    
+</body>
+</html>

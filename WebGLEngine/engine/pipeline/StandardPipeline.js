@@ -20,6 +20,7 @@ class StandardPipeline extends Pipeline {
             void main(){
                 gl_Position = u_mProj * u_mView * u_mModel * vec4(in_position, 1.0);
                 out_color = in_color;
+                gl_PointSize = 8.0f;
             }
         `;
 

@@ -24,6 +24,12 @@ class StaticMesh {
         this.zRotation = 0.0;
         this.materials = [];
         this.textures = [];
+        this.axisRotation = [
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0
+        ]
     }
 
     /**
@@ -40,7 +46,8 @@ class StaticMesh {
         mModel = m4.multiply(mModel, m4.xRotation(this.xRotation));
         mModel = m4.multiply(mModel, m4.zRotation(this.zRotation));
         mModel = m4.multiply(mModel, m4.scaling(this.scale[0], this.scale[1], this.scale[2]));
-
+        mModel = m4.multiply(mModel, this.axisRotation);
+        
         //var mModel = m4.identity();
 
         this.forward = m4.transformVector(mModel, [0.0, 0.0, -1.0, 0.0]);
@@ -257,5 +264,33 @@ class StaticMesh {
      */
     getSubmesh(index){
         return this.submeshes[index];
+    }
+
+    /**
+     * Get the forward vector
+     * @returns {Vector3} Forward vector
+     */
+    getForward(){
+        return this.forward;
+    }
+
+    /**
+     * Get the right vector
+     * @returns {Vector3} Right vector
+     */
+    getRight(){
+        return this.right;
+    }
+
+    /**
+     * Get the up vector
+     * @returns {Vector3} Up vector
+     */
+    getUp(){
+        return this.up;
+    }
+
+    rotateAxis(m){
+        this.axisRotation = m;
     }
 }

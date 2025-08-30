@@ -45,6 +45,7 @@ include("/WebGLEngine/engine/KeyCode.js");
 include("/WebGLEngine/engine/StaticMesh.js");
 include("/WebGLEngine/engine/Submesh.js");
 include("/WebGLEngine/engine/Material.js");
+//include("/WebGLEngine/engine/Transform.js");
 include("/WebGLEngine/engine/texture/Texture.js");
 include("/WebGLEngine/engine/bounding/BoundingVolume.js");
 include("/WebGLEngine/engine/bounding/SphereBounding.js");
@@ -940,33 +941,50 @@ function parseLib(textLib) {
   }
 
   /**
-   * 
-   * @param {float} x 
-   * @param {float} y 
-   * @param {*} width 
-   * @param {*} height 
-   * @param {*} viewMatrix 
-   * @param {*} projectionMatrix 
-   * @returns 
+   * Trace a ray from the screen (with the mouse) to pick an object in the world space.
+   * We have to send the coordinates from the Screen Space to the World Space that is where the object are.
+   * An optimization is only divide projectionMatrix[0][0] and projectionMatrix[1][1] instead of multiply the whole
+   * matrix. This part was took from the book Introduction to 3D game programming with DirectX 9.0c a shader approach by Frank D. Luna.
+   * @param {float} x Coordinate x mouse on the screen.
+   * @param {float} y Coordinate y mouse on the screen.
+   * @param {float} width  Width of the screen.
+   * @param {float} height Height of the screen.
+   * @param {Matrix4x4} viewMatrix View Matrix or camera matrix.
+   * @param {Matrix4x4} projectionMatrix Projection Matrix.
+   * @returns {Ray} The ray with the origin point that is the same of the camera in world space and the direction of the ray.
    */
   function pickingRay(x, y, width, height, viewMatrix, projectionMatrix){
-    var xp =( 2.0 * x / width - 1.0) / projectionMatrix[0];
-    var yp =(-2.0 * y / height + 1.0) / projectionMatrix[5];
+    /*var xp =( 2.0 * x / width - 1.0) / projectionMatrix[0];
+    var yp =(-2.0 * y / height + 1.0) / projectionMatrix[5];*/
 
-    var direction = [xp, yp, 1.0];
+    var xp = (x / width) * 2.0 - 1.0;
+    var yp = 1.0 - (y / height) * 2.0; 
+
+    xp /= projectionMatrix[0];
+    yp /= projectionMatrix[5];
+
+    //z = -1 Right Hand Rule
+    var direction = [xp, yp, -1.0];
 
     var invViewMatrix = m4.inverse(viewMatrix);
 
     var origin = [0.0, 0.0, 0.0];
     origin = m4.transformPoint(invViewMatrix, origin);
-    direction = m4.transformDirection(invViewMatrix, direction);
+    direction = m4.normalize(m4.transformDirection(invViewMatrix, direction));
 
-    var ray = {
-        origin : origin,
-        direction : direction
-    }
+    var ray = new Ray(origin, direction);
 
     return ray;
+  }
+
+  /** TODO This part must be to the scen graph */
+  this.camera = null;
+  function setActiveCamera(camera){
+    this.camera = camera;
+  }
+
+  function getActiveCamera(){
+    return this.camera;
   }
 
   return {
@@ -982,6 +1000,10 @@ function parseLib(textLib) {
       loadFileObj : loadFileObj,
       parseOBJFile : parseOBJFile,
       createBuffer : createBuffer,
+
+      setActiveCamera : setActiveCamera,
+      getActiveCamera : getActiveCamera,
+
       //Object Engine
       createMesh : createMesh,
       createMeshByObjFile : createMeshByObjFile,

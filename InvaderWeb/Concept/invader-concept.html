@@ -12,8 +12,11 @@
     <script type="text/javascript" src="../../WebGLEngine/engine/light/PointLight.js"></script>
     <script type="text/javascript" src="../../WebGLEngine/engine/light/SpotLight.js"></script>
     <script type="text/javascript" src="../../WebGLEngine/engine/Shape.js"></script>
+    <script type="text/javascript" src="../../WebGLEngine/engine/Ray.js"></script>
 
     <script type="text/javascript" src="Player.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/gl-matrix@3.4.3/gl-matrix-min.js"></script>
 
 </head>
 <body onload="init();">
@@ -33,6 +36,8 @@
         var lastY = 0;
         var dragging = false;
 
+        const { mat4, vec4 } = glMatrix;
+
         var projectMode = ProjectMode.Development;
 
          //------------- Player ----------------
@@ -41,6 +46,7 @@
          //------------- Meshes ----------------
          var grid;
          var floor;
+         var sphereProcedural;
 
          //------------- Pipelines -------------
         var simplePipeline;
@@ -56,6 +62,50 @@
         var tex_g1462;
 
         //----------------------------------
+
+        /**
+         * Función para convertir coordenadas del mouse (espacio de pantalla)
+         * a coordenadas del mundo 3D (espacio de mundo).
+         * @param {number} screenX - Coordenada X del mouse en el lienzo.
+         * @param {number} screenY - Coordenada Y del mouse en el lienzo.
+         * @param {number} canvasWidth - Ancho del lienzo.
+         * @param {number} canvasHeight - Alto del lienzo.
+         * @param {mat4} projectionMatrix - Matriz de proyección.
+         * @param {mat4} viewMatrix - Matriz de vista.
+         * @returns {vec4} - Vector 4D representando las coordenadas del mundo.
+         */
+        function unprojectMouseCoords(screenX, screenY, canvasWidth, canvasHeight, projectionMatrix, viewMatrix) {
+            // 1. Convertir coordenadas de pantalla a coordenadas normalizadas del dispositivo (NDC)
+            // Rango de [-1, 1]
+            const ndcX = (screenX / canvasWidth) * 2 - 1;
+            const ndcY = 1 - (screenY / canvasHeight) * 2; // Invertir el eje Y
+
+            // 2. Crear un vector en el espacio de clip
+            // El vector representa un punto en el plano "cerca" de la cámara
+            const clipCoords = vec4.fromValues(ndcX, ndcY, -1.0, 1.0);
+
+            // 3. Invertir la matriz de proyección y la matriz de vista
+            const inverseProjectionMatrix = mat4.create();
+            mat4.invert(inverseProjectionMatrix, projectionMatrix);
+
+            const inverseViewMatrix = mat4.create();
+            mat4.invert(inverseViewMatrix, viewMatrix);
+            
+            const inverseProjectionViewMatrix = mat4.create();
+            mat4.multiply(inverseProjectionViewMatrix, inverseViewMatrix, inverseProjectionMatrix);
+
+            // 4. Transformar el vector del espacio de clip al espacio del mundo
+            const worldCoords = vec4.create();
+            vec4.transformMat4(worldCoords, clipCoords, inverseProjectionViewMatrix);
+
+            // 5. Normalizar el vector para obtener las coordenadas finales en el espacio del mundo
+            // Dividimos por el componente 'w'
+            worldCoords[0] /= worldCoords[3];
+            worldCoords[1] /= worldCoords[3];
+            worldCoords[2] /= worldCoords[3];
+
+            return worldCoords;
+        }
 
         function input(){
             if(keypress[KeyCode.W])
@@ -131,22 +181,32 @@
         }
 
         function onMouseMove(){
-            this.lastX = this.x;
-            this.lastY = this.y;
+            var ray = webGLengine.pickingRay(event.clientX, event.clientY, canvas.width, canvas.height, camera.getViewMatrix(), camera.getProjectionMatrix());
 
-            this.x = event.clientX;
-            this.y = event.clientY;
+            var n = [0.0, 1.0, 0.0]; //Normal of the plane
+            var numer = m4.dot(n, ray.origin) - 1; // D = -1, D it's the constant in the parametric equation of the plane. It's -1 to satisfied the equation. Ax + By Cz + D = 0
+            var denom = m4.dot(n, ray.direction);
+            var t = -numer / denom;
 
-            var ray = webGLengine.pickingRay(this.x, this.y, canvas.width, canvas.height, camera.getViewMatrix(), camera.getProjectionMatrix());
-            debugger;
+            var interX = ray.origin[0] + ray.direction[0] * t; 
+            var interY = ray.origin[1] + ray.direction[1] * t;
+            var interZ = ray.origin[2] + ray.direction[2] * t;
+
+            sphereProcedural.setPosition([interX, interY, interZ]);
+
+            var direction = m4.normalize(m4.subtractVectors([interX, interY, interZ], player.getPosition()));
+            var angle = Math.acos(m4.dot([1.0, 0.0, 0.0], direction));
+
+            if(interZ > player.getPosition()[2])
+                angle = -angle;
+
+            var m = m4.axisRotation([0.0, 1, 0.0], angle - Math.PI / 2);
+
+            player.rotateAxis(m);
+            
+            //debugger;
             if (!this.dragging) 
                 return;
-
-            const dx = this.x - this.lastX;
-            const dy = this.y - this.lastY;
-
-            camera.yaw(dx * camera.getSpeedRotation());
-            camera.pitch(dy * camera.getSpeedRotation());
         }
     
         function init(){
@@ -160,10 +220,11 @@
             canvas.onmousemove = event => this.onMouseMove(event);
 
             camera = new Camera(gl);
-            camera.setPosition([0.0, 100.0, 210.0]);
+            camera.setPosition([0.0, 200.0, 310.0]);
+            //camera.setPosition([0.0, 50.0, 310.0]);
             camera.setSpeed(2.0);
             camera.setFarPlane(4000.0);
-            camera.pitch(webGLengine.degreeToRadian(-30));
+            camera.pitch(webGLengine.degreeToRadian(330));
 
             simplePipeline = new SimplePipeline(gl);
             cookTorrancePipeline = new CookTorrancePipeline(gl);
@@ -212,6 +273,13 @@
             floor.getSubmesh(0).materialIndex = 0;
             floor.addTexture(tex_g1462);
 
+            descriptor = {};
+            descriptor.radio = 5.0;
+            descriptor.slices = 20;
+            descriptor.stacks = 20;
+
+            sphereProcedural = shape.CreateSphere(descriptor);
+
             //------------- Lights -----------------
             directionalLight = new DirectionalLight();
             directionalLight.setBindingPoint(1);
@@ -244,6 +312,15 @@
 
             grid.setPosition([0.0, 0.0, 0.0]);
             grid.render(simplePipeline, RenderMode.LineLoop);*/
+
+            simplePipeline.use();
+            simplePipeline.setColor([1.0, 0.0, 0.0, 1.0]);
+
+            gl.uniformMatrix4fv(simplePipeline.getUniformLocation("u_mProj"), false, camera.getProjectionMatrix());
+            gl.uniformMatrix4fv(simplePipeline.getUniformLocation("u_mView"), false, camera.getViewMatrix());
+            gl.uniform3fv(simplePipeline.getUniformLocation("u_camera_position"), camera.getPosition());
+
+            sphereProcedural.render(simplePipeline, RenderMode.Triangles);
 
             cookTorrancePipeline.use();
             gl.uniformMatrix4fv(cookTorrancePipeline.getUniformLocation("u_mProj"), false, camera.getProjectionMatrix());
