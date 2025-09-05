@@ -15,9 +15,7 @@
     <script type="text/javascript" src="../../WebGLEngine/engine/Ray.js"></script>
 
     <script type="text/javascript" src="Player.js"></script>
-
-    <script src="https://cdn.jsdelivr.net/npm/gl-matrix@3.4.3/gl-matrix-min.js"></script>
-
+    <script type="text/javascript" src="BulletPlayer.js"></script>
 </head>
 <body onload="init();">
     <!--canvas id="webGLcanvas"-->
@@ -36,19 +34,18 @@
         var lastY = 0;
         var dragging = false;
 
-        const { mat4, vec4 } = glMatrix;
-
         var projectMode = ProjectMode.Development;
 
-         //------------- Player ----------------
-         var player;
+        //------------- Player ----------------
+        var player;
 
-         //------------- Meshes ----------------
-         var grid;
-         var floor;
-         var sphereProcedural;
+        //------------- Meshes ----------------
+        var grid;
+        var floor;
+        var sphereProcedural;
+        var bullet;
 
-         //------------- Pipelines -------------
+        //------------- Pipelines -------------
         var simplePipeline;
         var cookTorrancePipeline;
 
@@ -62,50 +59,6 @@
         var tex_g1462;
 
         //----------------------------------
-
-        /**
-         * Función para convertir coordenadas del mouse (espacio de pantalla)
-         * a coordenadas del mundo 3D (espacio de mundo).
-         * @param {number} screenX - Coordenada X del mouse en el lienzo.
-         * @param {number} screenY - Coordenada Y del mouse en el lienzo.
-         * @param {number} canvasWidth - Ancho del lienzo.
-         * @param {number} canvasHeight - Alto del lienzo.
-         * @param {mat4} projectionMatrix - Matriz de proyección.
-         * @param {mat4} viewMatrix - Matriz de vista.
-         * @returns {vec4} - Vector 4D representando las coordenadas del mundo.
-         */
-        function unprojectMouseCoords(screenX, screenY, canvasWidth, canvasHeight, projectionMatrix, viewMatrix) {
-            // 1. Convertir coordenadas de pantalla a coordenadas normalizadas del dispositivo (NDC)
-            // Rango de [-1, 1]
-            const ndcX = (screenX / canvasWidth) * 2 - 1;
-            const ndcY = 1 - (screenY / canvasHeight) * 2; // Invertir el eje Y
-
-            // 2. Crear un vector en el espacio de clip
-            // El vector representa un punto en el plano "cerca" de la cámara
-            const clipCoords = vec4.fromValues(ndcX, ndcY, -1.0, 1.0);
-
-            // 3. Invertir la matriz de proyección y la matriz de vista
-            const inverseProjectionMatrix = mat4.create();
-            mat4.invert(inverseProjectionMatrix, projectionMatrix);
-
-            const inverseViewMatrix = mat4.create();
-            mat4.invert(inverseViewMatrix, viewMatrix);
-            
-            const inverseProjectionViewMatrix = mat4.create();
-            mat4.multiply(inverseProjectionViewMatrix, inverseViewMatrix, inverseProjectionMatrix);
-
-            // 4. Transformar el vector del espacio de clip al espacio del mundo
-            const worldCoords = vec4.create();
-            vec4.transformMat4(worldCoords, clipCoords, inverseProjectionViewMatrix);
-
-            // 5. Normalizar el vector para obtener las coordenadas finales en el espacio del mundo
-            // Dividimos por el componente 'w'
-            worldCoords[0] /= worldCoords[3];
-            worldCoords[1] /= worldCoords[3];
-            worldCoords[2] /= worldCoords[3];
-
-            return worldCoords;
-        }
 
         function input(){
             if(keypress[KeyCode.W])
@@ -130,28 +83,36 @@
             if(keypress[KeyCode.W]){
                 //camera.moveForward(1);
                 var pos = camera.getPosition();
-                camera.setPosition([pos[0], pos[1], pos[2] + -2.0]);
-                player.translate([0.0, 0.0, -2.0]);
+                camera.setPosition([pos[0], pos[1], pos[2] + -player.getSpeed()]);
+                player.translate([0.0, 0.0, -player.getSpeed()]);
             }
             if(keypress[KeyCode.S]){
                 //camera.moveForward(-1);
                 var pos = camera.getPosition();
-                camera.setPosition([pos[0], pos[1], pos[2] + 2.0]);
-                player.translate([0.0, 0.0, 2.0]);
+                camera.setPosition([pos[0], pos[1], pos[2] + player.getSpeed()]);
+                player.translate([0.0, 0.0, player.getSpeed()]);
             }
             if(keypress[KeyCode.A]){
-                camera.strafe(-1);
-                player.translate([-2.0, 0.0, 0.0]);
+                //camera.strafe(-1);
+                var pos = camera.getPosition();
+                camera.setPosition([pos[0] - player.getSpeed(), pos[1], pos[2]]);
+                player.translate([-player.getSpeed(), 0.0, 0.0]);
             }
             if(keypress[KeyCode.D]){
-                camera.strafe(1);
-                player.translate([2.0, 0.0, 0.0]);
+                //camera.strafe(1);
+                var pos = camera.getPosition();
+                camera.setPosition([pos[0] + player.getSpeed(), pos[1], pos[2]]);
+                player.translate([player.getSpeed(), 0.0, 0.0]);
             }
-            if(keypress[KeyCode.Q]){
+            /*if(keypress[KeyCode.Q]){
                 player.rotateY(webGLengine.degreeToRadian(-2.0));
             }
             if(keypress[KeyCode.E]){
                 player.rotateY(webGLengine.degreeToRadian(2.0));
+            }*/
+
+            if(keypress[KeyCode.Space] || dragging){
+                player.shot();
             }
             
             /*
@@ -170,6 +131,9 @@
             this.dragging = false;
         }
 
+        /**
+         * This is the clic down event 
+         */
         function onMouseDown(event) {
             this.dragging = true;
             var x = event.clientX; // x coordinate of a mouse pointer
@@ -220,8 +184,7 @@
             canvas.onmousemove = event => this.onMouseMove(event);
 
             camera = new Camera(gl);
-            camera.setPosition([0.0, 200.0, 310.0]);
-            //camera.setPosition([0.0, 50.0, 310.0]);
+            camera.setPosition([0.0, 400.0, 290.0]);
             camera.setSpeed(2.0);
             camera.setFarPlane(4000.0);
             camera.pitch(webGLengine.degreeToRadian(330));
@@ -279,6 +242,14 @@
             descriptor.stacks = 20;
 
             sphereProcedural = shape.CreateSphere(descriptor);
+
+            descriptor = {};
+            descriptor.radio = 8.0;
+            descriptor.slices = 6;
+            descriptor.stacks = 6;
+
+            bullet = shape.CreateSphere(descriptor);
+            webGLengine.setResource("bullet", bullet);
 
             //------------- Lights -----------------
             directionalLight = new DirectionalLight();

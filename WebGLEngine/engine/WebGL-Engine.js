@@ -944,7 +944,8 @@ function parseLib(textLib) {
    * Trace a ray from the screen (with the mouse) to pick an object in the world space.
    * We have to send the coordinates from the Screen Space to the World Space that is where the object are.
    * An optimization is only divide projectionMatrix[0][0] and projectionMatrix[1][1] instead of multiply the whole
-   * matrix. This part was took from the book Introduction to 3D game programming with DirectX 9.0c a shader approach by Frank D. Luna.
+   * matrix. This part was took from the book Introduction to 3D game programming with DirectX 9.0c a shader approach by Frank D. Luna
+   * and adapted to rule right hand.
    * @param {float} x Coordinate x mouse on the screen.
    * @param {float} y Coordinate y mouse on the screen.
    * @param {float} width  Width of the screen.
@@ -977,14 +978,22 @@ function parseLib(textLib) {
     return ray;
   }
 
-  /** TODO This part must be to the scen graph */
-  this.camera = null;
-  function setActiveCamera(camera){
-    this.camera = camera;
+  this.resources = null;
+
+  /**
+   * Hashmap to store different objects.
+   * @param {string} key  
+   * @param {Object} value 
+   */
+  function setResource(key, value){
+    if(this.resources == null)
+      this.resources = new Map();
+    
+    this.resources.set(key, value);
   }
 
-  function getActiveCamera(){
-    return this.camera;
+  function getResource(key){
+    return this.resources.get(key);
   }
 
   return {
@@ -1001,8 +1010,8 @@ function parseLib(textLib) {
       parseOBJFile : parseOBJFile,
       createBuffer : createBuffer,
 
-      setActiveCamera : setActiveCamera,
-      getActiveCamera : getActiveCamera,
+      setResource : setResource,
+      getResource : getResource,
 
       //Object Engine
       createMesh : createMesh,

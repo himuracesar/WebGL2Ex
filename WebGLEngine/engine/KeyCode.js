@@ -22,7 +22,7 @@ function onKeyUp(e){
 
 /**
  * Enum to register Keys from the keyboard
- * @uthor César Himura
+ * @author César Himura
  */
 const KeyCode = Object.freeze({
     None : 0x00, // No key was pressed

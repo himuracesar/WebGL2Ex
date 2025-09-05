@@ -1,9 +1,16 @@
-
+/**
+ * Player of the game
+ * @author César Himura
+ * @version 1.0
+ */
 class Player{
     constructor(){
         this.mesh = null;
         this.position = [0.0, 0.0, 100.0];
-        this.angle = 0.0;//Math.PI / 2.0;
+        this.bullets = [];
+        this.fireRate = 140.0; //milliseconds
+        this.nextFire = 0.0;
+        this.speed = 4.0;
 
         var fnMesh = webGLengine.createMeshByObjFile(gl, "meshes/player.obj");
         fnMesh.then((staticMesh) => {
@@ -12,35 +19,54 @@ class Player{
         });
     }
 
+    /**
+     * Render the player
+     * @param {Pipeline} pipeline 
+     */
     render(pipeline){
-        //debugger;
         if(this.mesh != null)
             this.mesh.render(pipeline);
-        
+
         /*this.mesh
             .then(() => {console.log("fulfilled");}) 
             .catch(() => {console.log("rejected");})*/
+        if(this.bullets[0] != null){
+            var t = (new Date()).getTime() - this.bullets[0].getBirthTime();
+            if(t >= 1000.0){
+                this.bullets[0] = null;
+                this.bullets.shift();
+            }
+        }
+
+        for(const bullet of this.bullets){
+            bullet.render(pipeline);
+        }
     }
 
+    /**
+     * Translate the player to a new position. The position is adds to the current position.
+     * @param {Vector3} position 
+     */
     translate([x, y, z]){
         this.position = [this.position[0] + x, this.position[1] + y, this.position[2] + z];
         if(this.mesh != null)
             this.mesh.setPosition(this.position);
     }
 
-    rotateY(a){
-        if(this.mesh != null){
-            this.angle = a;// - Math.PI / 2.0;
-            this.mesh.rotateY(this.angle);
-        }
-    }
-
+    /**
+     * Place the player in some position.
+     * @param {Vector3} position 
+     */
     setPosition(position){
         this.position = position;
         if(this.mesh != null)
             this.mesh.setPosition(this.position);
     }
 
+    /**
+     * Get the current position of the player.
+     * @returns {Vector3} player's position
+     */
     getPosition(){
         return this.position;
     }
@@ -78,8 +104,35 @@ class Player{
         return [0.0, 1.0, 0.0];
     }
 
+    /**
+     * Rotate the player in a random axis.
+     * @param {Matrix4x4} m Matrix to rotate the player
+     */
     rotateAxis(m){
         if(this.mesh != null)
             this.mesh.rotateAxis(m);
+    }
+
+    /**
+     * Shot a bullet
+     */
+    shot() {
+        if((new Date()).getTime() > this.nextFire){
+            this.nextFire = this.fireRate + (new Date()).getTime();
+
+            var bullet = new BulletPlayer("bullet");
+            bullet.setPosition(this.getPosition());
+            bullet.setDirection(this.getForward());
+
+            this.bullets.push(bullet);
+        }
+    }
+
+    /**
+     * Get the speed
+     * @returns {float} speed of the player
+     */
+    getSpeed() {
+        return this.speed;
     }
 }
