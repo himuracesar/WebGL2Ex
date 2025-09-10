@@ -12,6 +12,8 @@ class Player{
         this.nextFire = 0.0;
         this.speed = 4.0;
 
+        this.bounding = new SphereBounding({ radio: 20.0, position: this.position });
+
         var fnMesh = webGLengine.createMeshByObjFile(gl, "meshes/player.obj");
         fnMesh.then((staticMesh) => {
             this.mesh = staticMesh;
@@ -41,6 +43,8 @@ class Player{
         for(const bullet of this.bullets){
             bullet.render(pipeline);
         }
+
+        this.bounding.render(axisPipeline);
     }
 
     /**
@@ -49,8 +53,10 @@ class Player{
      */
     translate([x, y, z]){
         this.position = [this.position[0] + x, this.position[1] + y, this.position[2] + z];
-        if(this.mesh != null)
+        if(this.mesh != null){
+            this.setPosition(this.position);
             this.mesh.setPosition(this.position);
+        }
     }
 
     /**
@@ -59,8 +65,10 @@ class Player{
      */
     setPosition(position){
         this.position = position;
-        if(this.mesh != null)
+        if(this.mesh != null){
             this.mesh.setPosition(this.position);
+            this.bounding.setPosition(this.position);
+        }
     }
 
     /**
@@ -108,9 +116,9 @@ class Player{
      * Rotate the player in a random axis.
      * @param {Matrix4x4} m Matrix to rotate the player
      */
-    rotateAxis(m){
+    rotationAxis(m){
         if(this.mesh != null)
-            this.mesh.rotateAxis(m);
+            this.mesh.rotationAxis(m);
     }
 
     /**
@@ -134,5 +142,13 @@ class Player{
      */
     getSpeed() {
         return this.speed;
+    }
+
+    /**
+     * Get the bounding
+     * @returns the bounding
+     */
+    getBounding() {
+        return this.bounding;
     }
 }

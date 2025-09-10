@@ -326,7 +326,8 @@ class CookTorrancePipeline extends Pipeline {
             void main(){
                 camera.mWorldView = u_mView;
 
-                vec3 normalWV = normalize((camera.mWorldView * vec4(normalize(o_normalWV), 0.0f)).xyz);
+                //vec3 normalWV = normalize((camera.mWorldView * vec4(normalize(o_normalWV), 0.0f)).xyz);
+                vec3 normalWV = normalize(o_normalWV);
 
                 camera.cameraPosWV = camera.mWorldView * vec4(u_camera_position, 1.0f);
 	            vec4 viewDirection = camera.cameraPosWV - vec4(o_positionWV, 1.0f);

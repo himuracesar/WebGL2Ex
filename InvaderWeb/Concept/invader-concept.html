@@ -16,6 +16,8 @@
 
     <script type="text/javascript" src="Player.js"></script>
     <script type="text/javascript" src="BulletPlayer.js"></script>
+
+    <script type="text/javascript" src="../../WebGLEngine/engine/pipeline/AxisPipeline.js"></script>
 </head>
 <body onload="init();">
     <!--canvas id="webGLcanvas"-->
@@ -44,13 +46,16 @@
         var floor;
         var sphereProcedural;
         var bullet;
+        var cube;
 
         //------------- Pipelines -------------
         var simplePipeline;
         var cookTorrancePipeline;
+        var axisPipeline;
 
         //------------- Materials --------------
         var m_gray;
+        var m_whiteGray;
 
         //------------- Lights -----------------
         var directionalLight;
@@ -166,7 +171,7 @@
 
             var m = m4.axisRotation([0.0, 1, 0.0], angle - Math.PI / 2);
 
-            player.rotateAxis(m);
+            player.rotationAxis(m);
             
             //debugger;
             if (!this.dragging) 
@@ -184,13 +189,14 @@
             canvas.onmousemove = event => this.onMouseMove(event);
 
             camera = new Camera(gl);
-            camera.setPosition([0.0, 400.0, 290.0]);
+            camera.setPosition([0.0, 200.0, 310.0]);
             camera.setSpeed(2.0);
             camera.setFarPlane(4000.0);
             camera.pitch(webGLengine.degreeToRadian(330));
 
             simplePipeline = new SimplePipeline(gl);
             cookTorrancePipeline = new CookTorrancePipeline(gl);
+            axisPipeline = new AxisPipeline(gl);
 
             tex_g1462 = webGLengine.createTexture(gl, "textures/g1462.png");
 
@@ -209,6 +215,19 @@
             m_gray.setFresnel(0.0);
             m_gray.setHasTexture(true);
             m_gray.setDiffuseTextureIndex(0);
+
+            m_whiteGray = new Material();
+            m_whiteGray.setDiffuseColor([0.25, 0.25, 0.25, 1.0]);
+            m_whiteGray.setAmbientColor([0.25, 0.25, 0.25, 1.0]);
+            m_whiteGray.setSpecularColor([1.0, 1.0, 1.0, 1.0]);
+            m_whiteGray.setSpecularPower(32.0);
+            m_whiteGray.setBindingPoint(0);
+            m_whiteGray.setName("M_WHITEGRAY");
+            m_whiteGray.setMetallness(0.5);
+            m_whiteGray.setRoughness(1.0);
+            m_whiteGray.setFresnel(0.0);
+            m_whiteGray.setHasTexture(false);
+            m_whiteGray.setDiffuseTextureIndex(0);
 
             //------------- Meshes -----------------
             var shape = new Shape();
@@ -251,6 +270,15 @@
             bullet = shape.CreateSphere(descriptor);
             webGLengine.setResource("bullet", bullet);
 
+            descriptor = {};
+            descriptor.width = 50.0;
+            descriptor.height = 50.0;
+            descriptor.depth = 50.0;
+
+            cube = shape.CreateCube(descriptor);
+            cube.setMaterial(0, m_whiteGray);
+            cube.getSubmesh(0).materialIndex = 0;
+
             //------------- Lights -----------------
             directionalLight = new DirectionalLight();
             directionalLight.setBindingPoint(1);
@@ -273,6 +301,7 @@
 
             console.log("Render");
 
+            //input();
             inputPlayer();
 
             /*simplePipeline.use();
@@ -304,6 +333,17 @@
             floor.render(cookTorrancePipeline, RenderMode.Triangles);
 
             player.render(cookTorrancePipeline);
+
+            /*gl.enable(gl.BLEND);
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);*/
+
+            /*outlinePipeline.use();
+            gl.uniformMatrix4fv(outlinePipeline.getUniformLocation("u_mProj"), false, camera.getProjectionMatrix());
+            gl.uniformMatrix4fv(outlinePipeline.getUniformLocation("u_mView"), false, camera.getViewMatrix());*/
+            //gl.uniform3fv(outlinePipeline.getUniformLocation("u_camera_position"), camera.getPosition());
+
+            cube.setPosition([0.0, 25.0, -50.0]);
+            cube.render(cookTorrancePipeline, RenderMode.Triangles);
 
             requestAnimationFrame(render);
         }

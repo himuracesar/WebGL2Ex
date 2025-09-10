@@ -231,6 +231,12 @@ class Material {
             ]), gl.DYNAMIC_DRAW);
 
             this.indexBuffer = gl.getUniformBlockIndex(pipeline.getProgram(), nameUbo);
+
+            if (this.indexBuffer === gl.INVALID_INDEX) {
+                console.log("Material getBuffer:: Uniform block is not found so the index buffer is not valid.");
+                return null;
+            }
+
             gl.uniformBlockBinding(pipeline.getProgram(), this.indexBuffer, this.bindingPoint);
 
             gl.bindBuffer(gl.UNIFORM_BUFFER, null);

@@ -82,25 +82,29 @@ class StaticMesh {
             }
 
             if(this.submeshes[i].materialIndex > -1){
-                gl.bindBufferBase(
-                        gl.UNIFORM_BUFFER, 
-                        this.materials[this.submeshes[i].materialIndex].getBindingPoint(), 
-                        this.materials[this.submeshes[i].materialIndex].getBuffer(pipeline, "u_material")
-                );
+                var bufferBase = this.materials[this.submeshes[i].materialIndex].getBuffer(pipeline, "u_material");
+
+                if(bufferBase != null) {
+                    gl.bindBufferBase(
+                            gl.UNIFORM_BUFFER, 
+                            this.materials[this.submeshes[i].materialIndex].getBindingPoint(), 
+                            this.materials[this.submeshes[i].materialIndex].getBuffer(pipeline, "u_material")
+                    );
                 
-                var iSampler = 0;
-                while(pipeline.getUniformLocation("u_sampler" + iSampler) !== undefined && this.materials[this.submeshes[i].materialIndex].hasTexture()){
-                    if(this.textures[this.materials[this.submeshes[i].materialIndex].diffuseTextureIndex].getTexture() == null)
-                        break;
+                    var iSampler = 0;
+                    while(pipeline.getUniformLocation("u_sampler" + iSampler) !== undefined && this.materials[this.submeshes[i].materialIndex].hasTexture()){
+                        if(this.textures[this.materials[this.submeshes[i].materialIndex].diffuseTextureIndex].getTexture() == null)
+                            break;
 
-                    gl.activeTexture(gl.TEXTURE0 + iSampler);
-                    gl.bindTexture(gl.TEXTURE_2D, this.textures[this.materials[this.submeshes[i].materialIndex].diffuseTextureIndex].getTexture());
-                    /**
-                     * TODO The 0 value must be dynamic. The engine have to decide the value.
-                     */
-                    gl.uniform1i(gl.getUniformLocation(pipeline.getProgram(), "u_sampler" + iSampler), 0);
+                        gl.activeTexture(gl.TEXTURE0 + iSampler);
+                        gl.bindTexture(gl.TEXTURE_2D, this.textures[this.materials[this.submeshes[i].materialIndex].diffuseTextureIndex].getTexture());
+                        /**
+                         * TODO The 0 value must be dynamic. The engine have to decide the value.
+                         */
+                        gl.uniform1i(gl.getUniformLocation(pipeline.getProgram(), "u_sampler" + iSampler), 0);
 
-                    iSampler++;
+                        iSampler++;
+                    }
                 }
             }
     
@@ -290,7 +294,11 @@ class StaticMesh {
         return this.up;
     }
 
-    rotateAxis(m){
+    /**
+     * Rotate in a random axis
+     * @param {Matrix4x4} m Rotated matrix
+     */
+    rotationAxis(m){
         this.axisRotation = m;
     }
 }

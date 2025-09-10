@@ -14,6 +14,8 @@ class BulletPlayer {
         this.speed = 20.0;
         this.direction = [0.0, 0.0, 0.0];
         this.birthTime = (new Date()).getTime();
+
+        this.bounding = new SphereBounding({ radio: 8.0, position: this.position });
     }
 
     /**
@@ -22,13 +24,14 @@ class BulletPlayer {
      */
     render(pipeline) {
         if(this.mesh != null){
-            this.position = [
+            this.setPosition([
                 this.direction[0] * this.speed + this.position[0], 
                 0.0, 
                 this.direction[2] * this.speed + this.position[2]
-            ];
-            this.mesh.setPosition(this.position);
+            ]);
+            
             this.mesh.render(pipeline);
+            //this.bounding.render();
         }
     }
 
@@ -38,6 +41,8 @@ class BulletPlayer {
      */
     setPosition(position){
         this.position = position;
+        this.mesh.setPosition(this.position);
+        this.bounding.setPosition(this.position);
     }
 
     /**
