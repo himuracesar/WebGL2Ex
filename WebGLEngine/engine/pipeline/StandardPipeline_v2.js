@@ -1,26 +1,27 @@
 
 /**
- * Standard pipeline. The shaders only draw the position and color of the vertices
+ * Standard pipeline. The shaders only draw the position and color of the vertices.
+ * This version works with instances.
  * @author César Himura
  * @version 1.0
  */
-class StandardPipeline extends Pipeline {
+class StandardPipeline_v2 extends Pipeline {
 
     constructor(gl){
         var vertexShaderSrc = `#version 300 es
-            layout(location=0) in vec3 in_position;
-            layout(location=1) in vec4 in_color;
-
             uniform mat4 u_mProj;
             uniform mat4 u_mView;
-            uniform mat4 u_mModel;
+            //uniform mat4 u_mModel;
+
+            layout(location=0) in vec3 in_position;
+            layout(location=1) in vec4 in_color;
+            layout(location=2) in mat4 in_mModel;
 
             out vec4 out_color;
 
             void main(){
-                gl_Position = u_mProj * u_mView * u_mModel * vec4(in_position, 1.0);
+                gl_Position = u_mProj * u_mView * in_mModel * vec4(in_position, 1.0);
                 out_color = in_color;
-                gl_PointSize = 8.0f;
             }
         `;
 
@@ -44,9 +45,11 @@ class StandardPipeline extends Pipeline {
         
         var in_position = webGLengine.getAttributeLocation(gl, this.getProgram(), "in_position");
         var in_color = webGLengine.getAttributeLocation(gl, this.getProgram(), "in_color");
+        var in_mModel = webGLengine.getAttributeLocation(gl, this.getProgram(), "in_mModel");
 
         attributes.set("in_position", in_position);
         attributes.set("in_color", in_color);
+        attributes.set("in_mModel", in_mModel);
 
         this.attributes = attributes;
 
@@ -54,11 +57,11 @@ class StandardPipeline extends Pipeline {
 
         var u_mProj = gl.getUniformLocation(this.getProgram(), "u_mProj");
         var u_mView = gl.getUniformLocation(this.getProgram(), "u_mView");
-        var u_mModel = gl.getUniformLocation(this.getProgram(), "u_mModel");
+        //var u_mModel = gl.getUniformLocation(this.getProgram(), "u_mModel");
 
         uniforms.set("u_mProj", u_mProj);
         uniforms.set("u_mView", u_mView);
-        uniforms.set("u_mModel", u_mModel);
+        //uniforms.set("u_mModel", u_mModel);
 
         this.uniforms = uniforms;
     }

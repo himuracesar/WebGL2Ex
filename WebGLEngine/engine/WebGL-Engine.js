@@ -17,7 +17,6 @@ function include(file) {
   script.defer = true;
 
   document.getElementsByTagName('head').item(0).appendChild(script);
-
 }
 
 /**
@@ -39,15 +38,16 @@ const ProjectMode = Object.freeze({
   Development : 2
 });
 
-include("engine/Camera.js");
-include("engine/m4.js");
-include("engine/KeyCode.js");
-include("engine/StaticMesh.js");
-include("engine/Submesh.js");
-include("engine/Material.js");
-include("engine/texture/Texture.js");
-include("engine/bounding/BoundingVolume.js");
-include("engine/bounding/SphereBounding.js");
+include("/WebGLEngine/engine/Camera.js");
+include("/WebGLEngine/engine/m4.js");
+include("/WebGLEngine/engine/KeyCode.js");
+include("/WebGLEngine/engine/StaticMesh.js");
+include("/WebGLEngine/engine/Submesh.js");
+include("/WebGLEngine/engine/Material.js");
+//include("/WebGLEngine/engine/Transform.js");
+include("/WebGLEngine/engine/texture/Texture.js");
+include("/WebGLEngine/engine/bounding/BoundingVolume.js");
+include("/WebGLEngine/engine/bounding/SphereBounding.js");
 
 (function(root, factory){
     if (typeof define === 'function' && define.amd) {
@@ -79,6 +79,16 @@ include("engine/bounding/SphereBounding.js");
         console.log(gl.getParameter(gl.SHADING_LANGUAGE_VERSION));
         
         return gl;
+      }
+
+      function autoResizeCanvas(canvas) {
+          const expandFullScreen = () => {
+              canvas.width = window.innerWidth;
+              canvas.height = window.innerHeight;
+          };
+          expandFullScreen();
+          // Resize screen when the browser has triggered the resize event
+          window.addEventListener('resize', expandFullScreen);
       }
 
       /**
@@ -776,8 +786,8 @@ function parseLib(textLib) {
       var numVertices = obj.geometries[i].data.position.length / 3;
       var iTex = 0;
 
-      var vmin = [Number.MAX_VALUE, Number.MAX_VALUE, Number.MAX_VALUE];
-      var vmax = [Number.MIN_VALUE, Number.MIN_VALUE, Number.MIN_VALUE];
+      //var vmin = [Number.MAX_VALUE, Number.MAX_VALUE, Number.MAX_VALUE];
+      //var vmax = [Number.MIN_VALUE, Number.MIN_VALUE, Number.MIN_VALUE];
       for(var j = 0; j < obj.geometries[i].data.position.length; j += 3){
         vertices.push(obj.geometries[i].data.position[j]);
         vertices.push(obj.geometries[i].data.position[j + 1]);
@@ -788,11 +798,11 @@ function parseLib(textLib) {
         vertices.push(obj.geometries[i].data.normal[j + 1]);
         vertices.push(obj.geometries[i].data.normal[j + 2]);
 
-        vmin = m4.vector3Min(vmin, [obj.geometries[i].data.position[j], obj.geometries[i].data.position[j + 1], obj.geometries[i].data.position[j + 2]]);
-				vmax = m4.vector3Max(vmax, [obj.geometries[i].data.position[j], obj.geometries[i].data.position[j + 1], obj.geometries[i].data.position[j + 2]]);
+        //vmin = m4.vector3Min(vmin, [obj.geometries[i].data.position[j], obj.geometries[i].data.position[j + 1], obj.geometries[i].data.position[j + 2]]);
+				//vmax = m4.vector3Max(vmax, [obj.geometries[i].data.position[j], obj.geometries[i].data.position[j + 1], obj.geometries[i].data.position[j + 2]]);
       }
 
-      var bounding = new SphereBounding(vmin, vmax);
+      //var bounding = new SphereBounding(vmin, vmax);
 
       var vbo = webGLengine.createBuffer(gl);
       gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
@@ -802,7 +812,7 @@ function parseLib(textLib) {
       submesh.setVertexBuffer(vbo);
       submesh.setNumVertices(numVertices);
       submesh.setMaterialIndex(dicmat[obj.geometries[i].material]);
-      submesh.setBoundingVolume(bounding);
+      //submesh.setBoundingVolume(bounding);
 
       mesh.addSubmesh(submesh);
     }
@@ -939,29 +949,174 @@ function parseLib(textLib) {
     });
   }
 
-    return {
-        initWebGL : initWebGL, 
-        createProgram : createProgram,
-        createShader : createShader,
-        resizeCanvasToDisplaySize : resizeCanvasToDisplaySize,
-        getAttributeLocation : getAttributeLocation,
-        getUniformLocation : getUniformLocation,
-        radianToDegree : radianToDegree,
-        degreeToRadian : degreeToRadian,
-        parseOBJ : parseOBJ,
-        loadFileObj : loadFileObj,
-        parseOBJFile : parseOBJFile,
-        createBuffer : createBuffer,
-        //Object Engine
-        createMesh : createMesh,
-        createMeshByObjFile : createMeshByObjFile,
-        createTexture : createTexture,
-        //Functions
-        rgbToHex : rgbToHex,
-        hexToRgb : hexToRgb,
-        loadShaderFromFile : loadShaderFromFile
-        //readTextFile : readTextFile
-    }
+  /**
+   * Trace a ray from the screen (with the mouse) to pick an object in the world space.
+   * We have to send the coordinates from the Screen Space to the World Space that is where the object are.
+   * An optimization is only divide projectionMatrix[0][0] and projectionMatrix[1][1] instead of multiply the whole
+   * matrix. This part was took from the book Introduction to 3D game programming with DirectX 9.0c a shader approach by Frank D. Luna
+   * and adapted to rule right hand.
+   * @param {float} x Coordinate x mouse on the screen.
+   * @param {float} y Coordinate y mouse on the screen.
+   * @param {float} width  Width of the screen.
+   * @param {float} height Height of the screen.
+   * @param {Matrix4x4} viewMatrix View Matrix or camera matrix.
+   * @param {Matrix4x4} projectionMatrix Projection Matrix.
+   * @returns {Ray} The ray with the origin point that is the same of the camera in world space and the direction of the ray.
+   */
+  function pickingRay(x, y, width, height, viewMatrix, projectionMatrix){
+    /*var xp =( 2.0 * x / width - 1.0) / projectionMatrix[0];
+    var yp =(-2.0 * y / height + 1.0) / projectionMatrix[5];*/
 
-    })
+    var xp = (x / width) * 2.0 - 1.0;
+    var yp = 1.0 - (y / height) * 2.0; 
+
+    xp /= projectionMatrix[0];
+    yp /= projectionMatrix[5];
+
+    //z = -1 Right Hand Rule
+    var direction = [xp, yp, -1.0];
+
+    var invViewMatrix = m4.inverse(viewMatrix);
+
+    var origin = [0.0, 0.0, 0.0];
+    origin = m4.transformPoint(invViewMatrix, origin);
+    direction = m4.normalize(m4.transformDirection(invViewMatrix, direction));
+
+    var ray = new Ray(origin, direction);
+
+    return ray;
+  }
+
+  this.resources = null;
+
+  /**
+   * Hashmap to store different objects.
+   * @param {string} key  
+   * @param {Object} value 
+   */
+  function setResource(key, value){
+    if(this.resources == null)
+      this.resources = new Map();
+    
+    this.resources.set(key, value);
+  }
+
+  /**
+   * Get a resource
+   * @param {string} key 
+   * @returns resource
+   */
+  function getResource(key){
+    return this.resources.get(key);
+  }
+
+  this.messages = null;
+  /**
+   * Hashmap to store different messages for each object.
+   * @param {string} key ID or key of the object or whatever 
+   * @param {Object} msg Message
+   */
+  function addMessage(key, msg){
+    if(this.messages == null)
+      this.messages = new Map();
+
+    var m = this.messages.get(key);
+    if(m === undefined)
+      m = [];
+
+    m.push(msg);
+    
+    this.messages.set(key, m);
+  }
+
+  /**
+   * Get a list of messages
+   * @param {string} key 
+   * @returns {Array} resource
+   */
+  function getMessages(key){
+    if(this.messages == null)
+      return undefined;
+
+    return this.messages.get(key);
+  }
+
+  /**
+   * Clean the messages for a specific object
+   * @param {string} key 
+   */
+  function cleanMessagesForObject(key){
+    this.messages.delete(key);
+  }
+
+  this.objectsInCollision = null;
+
+  /**
+   * Add on an object that is in collision with other. This data structure is used
+   * by the Collision Manager
+   * @param {string / int} id 
+   * @param {Object} object 
+   */
+  function addObjectInCollision(id, object){
+    if(this.objectsInCollision == null)
+      this.objectsInCollision = new Map();
+
+    this.objectsInCollision.set(id, object);
+  }
+
+  /**
+   * Get an object that is in collision
+   * @param {string / int} key 
+   * @returns {Object} 
+   */
+  function getObjectInCollision(key){
+    return this.objectsInCollision.get(key);
+  }
+
+  /**
+   * Delete the object when the collision is processed
+   * @param {string / int} key 
+   */
+  function deleteObjectInCollision(key){
+    this.objectsInCollision.delete(key);
+  }
+
+  return {
+      initWebGL : initWebGL, 
+      autoResizeCanvas : autoResizeCanvas,
+      createProgram : createProgram,
+      createShader : createShader,
+      resizeCanvasToDisplaySize : resizeCanvasToDisplaySize,
+      getAttributeLocation : getAttributeLocation,
+      getUniformLocation : getUniformLocation,
+      radianToDegree : radianToDegree,
+      degreeToRadian : degreeToRadian,
+      parseOBJ : parseOBJ,
+      loadFileObj : loadFileObj,
+      parseOBJFile : parseOBJFile,
+      createBuffer : createBuffer,
+
+      setResource : setResource,
+      getResource : getResource,
+      addMessage : addMessage,
+      getMessages : getMessages,
+      cleanMessagesForObject : cleanMessagesForObject,
+      addObjectInCollision : addObjectInCollision,
+      getObjectInCollision : getObjectInCollision,
+      deleteObjectInCollision : deleteObjectInCollision,
+
+      //Object Engine
+      createMesh : createMesh,
+      createMeshByObjFile : createMeshByObjFile,
+      createTexture : createTexture,
+      //Functions
+      rgbToHex : rgbToHex,
+      hexToRgb : hexToRgb,
+      loadShaderFromFile : loadShaderFromFile,
+      //readTextFile : readTextFile
+
+      pickingRay : pickingRay
+  }
+
+  })
 );

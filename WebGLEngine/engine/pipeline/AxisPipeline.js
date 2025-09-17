@@ -1,12 +1,12 @@
 
 /**
- * Standard pipeline. The shaders only draw the position and color of the vertices
+ * To draw the axis
  * @author César Himura
  * @version 1.0
  */
-class StandardPipeline extends Pipeline {
+class AxisPipeline extends Pipeline {
 
-    constructor(gl){
+    constructor(){
         var vertexShaderSrc = `#version 300 es
             layout(location=0) in vec3 in_position;
             layout(location=1) in vec4 in_color;
@@ -20,7 +20,8 @@ class StandardPipeline extends Pipeline {
             void main(){
                 gl_Position = u_mProj * u_mView * u_mModel * vec4(in_position, 1.0);
                 out_color = in_color;
-                gl_PointSize = 8.0f;
+                //gl_PointSize = 8.0f;
+                gl_PointSize = 2.0f;
             }
         `;
 
@@ -102,6 +103,14 @@ class StandardPipeline extends Pipeline {
      */
     getVertexFormat(){
         return this.vertexFormat;
+    }
+
+    /**
+     * Set the uniform variable color in the shader
+     * @param {Vector4} color 
+     */
+    setUniformLocationColor(color){
+        gl.uniform4fv(this.getUniformLocation("u_color"), color);
     }
     
 }

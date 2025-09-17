@@ -24,6 +24,12 @@ class StaticMesh {
         this.zRotation = 0.0;
         this.materials = [];
         this.textures = [];
+        this.axisRotation = [
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0
+        ]
     }
 
     /**
@@ -40,7 +46,8 @@ class StaticMesh {
         mModel = m4.multiply(mModel, m4.xRotation(this.xRotation));
         mModel = m4.multiply(mModel, m4.zRotation(this.zRotation));
         mModel = m4.multiply(mModel, m4.scaling(this.scale[0], this.scale[1], this.scale[2]));
-
+        mModel = m4.multiply(mModel, this.axisRotation);
+        
         //var mModel = m4.identity();
 
         this.forward = m4.transformVector(mModel, [0.0, 0.0, -1.0, 0.0]);
@@ -75,32 +82,36 @@ class StaticMesh {
             }
 
             if(this.submeshes[i].materialIndex > -1){
-                gl.bindBufferBase(
-                        gl.UNIFORM_BUFFER, 
-                        this.materials[this.submeshes[i].materialIndex].getBindingPoint(), 
-                        this.materials[this.submeshes[i].materialIndex].getBuffer(pipeline, "u_material")
-                );
+                var bufferBase = this.materials[this.submeshes[i].materialIndex].getBuffer(pipeline, "u_material");
+
+                if(bufferBase != null) {
+                    gl.bindBufferBase(
+                            gl.UNIFORM_BUFFER, 
+                            this.materials[this.submeshes[i].materialIndex].getBindingPoint(), 
+                            this.materials[this.submeshes[i].materialIndex].getBuffer(pipeline, "u_material")
+                    );
                 
-                var iSampler = 0;
-                while(pipeline.getUniformLocation("u_sampler" + iSampler) !== undefined && this.materials[this.submeshes[i].materialIndex].hasTexture()){
-                    if(this.textures[this.materials[this.submeshes[i].materialIndex].diffuseTextureIndex].getTexture() == null)
-                        break;
+                    var iSampler = 0;
+                    while(pipeline.getUniformLocation("u_sampler" + iSampler) !== undefined && this.materials[this.submeshes[i].materialIndex].hasTexture()){
+                        if(this.textures[this.materials[this.submeshes[i].materialIndex].diffuseTextureIndex].getTexture() == null)
+                            break;
 
-                    gl.activeTexture(gl.TEXTURE0 + iSampler);
-                    gl.bindTexture(gl.TEXTURE_2D, this.textures[this.materials[this.submeshes[i].materialIndex].diffuseTextureIndex].getTexture());
-                    /**
-                     * TODO The 0 value must be dynamic. The engine have to decide the value.
-                     */
-                    gl.uniform1i(gl.getUniformLocation(pipeline.getProgram(), "u_sampler" + iSampler), 0);
+                        gl.activeTexture(gl.TEXTURE0 + iSampler);
+                        gl.bindTexture(gl.TEXTURE_2D, this.textures[this.materials[this.submeshes[i].materialIndex].diffuseTextureIndex].getTexture());
+                        /**
+                         * TODO The 0 value must be dynamic. The engine have to decide the value.
+                         */
+                        gl.uniform1i(gl.getUniformLocation(pipeline.getProgram(), "u_sampler" + iSampler), 0);
 
-                    iSampler++;
+                        iSampler++;
+                    }
                 }
             }
     
             if(this.submeshes[i].getNumIndices() > 0){
                 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.submeshes[i].getIndexBuffer());
                 //gl.drawElements(gl.LINE_LOOP, this.submeshes[i].getNumIndices(), gl.UNSIGNED_SHORT, 0)
-                gl.drawElements(mode, this.submeshes[i].getNumIndices(), gl.UNSIGNED_SHORT, 0);;
+                gl.drawElements(mode, this.submeshes[i].getNumIndices(), gl.UNSIGNED_SHORT, 0);
             } else {
                 gl.drawArrays(gl.TRIANGLES, 0, this.submeshes[i].getNumVertices());
             }
@@ -257,5 +268,37 @@ class StaticMesh {
      */
     getSubmesh(index){
         return this.submeshes[index];
+    }
+
+    /**
+     * Get the forward vector
+     * @returns {Vector3} Forward vector
+     */
+    getForward(){
+        return this.forward;
+    }
+
+    /**
+     * Get the right vector
+     * @returns {Vector3} Right vector
+     */
+    getRight(){
+        return this.right;
+    }
+
+    /**
+     * Get the up vector
+     * @returns {Vector3} Up vector
+     */
+    getUp(){
+        return this.up;
+    }
+
+    /**
+     * Rotate in a random axis
+     * @param {Matrix4x4} m Rotated matrix
+     */
+    rotationAxis(m){
+        this.axisRotation = m;
     }
 }
