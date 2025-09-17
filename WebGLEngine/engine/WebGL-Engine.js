@@ -17,7 +17,6 @@ function include(file) {
   script.defer = true;
 
   document.getElementsByTagName('head').item(0).appendChild(script);
-
 }
 
 /**
@@ -80,6 +79,16 @@ include("/WebGLEngine/engine/bounding/SphereBounding.js");
         console.log(gl.getParameter(gl.SHADING_LANGUAGE_VERSION));
         
         return gl;
+      }
+
+      function autoResizeCanvas(canvas) {
+          const expandFullScreen = () => {
+              canvas.width = window.innerWidth;
+              canvas.height = window.innerHeight;
+          };
+          expandFullScreen();
+          // Resize screen when the browser has triggered the resize event
+          window.addEventListener('resize', expandFullScreen);
       }
 
       /**
@@ -992,12 +1001,89 @@ function parseLib(textLib) {
     this.resources.set(key, value);
   }
 
+  /**
+   * Get a resource
+   * @param {string} key 
+   * @returns resource
+   */
   function getResource(key){
     return this.resources.get(key);
   }
 
+  this.messages = null;
+  /**
+   * Hashmap to store different messages for each object.
+   * @param {string} key ID or key of the object or whatever 
+   * @param {Object} msg Message
+   */
+  function addMessage(key, msg){
+    if(this.messages == null)
+      this.messages = new Map();
+
+    var m = this.messages.get(key);
+    if(m === undefined)
+      m = [];
+
+    m.push(msg);
+    
+    this.messages.set(key, m);
+  }
+
+  /**
+   * Get a list of messages
+   * @param {string} key 
+   * @returns {Array} resource
+   */
+  function getMessages(key){
+    if(this.messages == null)
+      return undefined;
+
+    return this.messages.get(key);
+  }
+
+  /**
+   * Clean the messages for a specific object
+   * @param {string} key 
+   */
+  function cleanMessagesForObject(key){
+    this.messages.delete(key);
+  }
+
+  this.objectsInCollision = null;
+
+  /**
+   * Add on an object that is in collision with other. This data structure is used
+   * by the Collision Manager
+   * @param {string / int} id 
+   * @param {Object} object 
+   */
+  function addObjectInCollision(id, object){
+    if(this.objectsInCollision == null)
+      this.objectsInCollision = new Map();
+
+    this.objectsInCollision.set(id, object);
+  }
+
+  /**
+   * Get an object that is in collision
+   * @param {string / int} key 
+   * @returns {Object} 
+   */
+  function getObjectInCollision(key){
+    return this.objectsInCollision.get(key);
+  }
+
+  /**
+   * Delete the object when the collision is processed
+   * @param {string / int} key 
+   */
+  function deleteObjectInCollision(key){
+    this.objectsInCollision.delete(key);
+  }
+
   return {
       initWebGL : initWebGL, 
+      autoResizeCanvas : autoResizeCanvas,
       createProgram : createProgram,
       createShader : createShader,
       resizeCanvasToDisplaySize : resizeCanvasToDisplaySize,
@@ -1012,6 +1098,12 @@ function parseLib(textLib) {
 
       setResource : setResource,
       getResource : getResource,
+      addMessage : addMessage,
+      getMessages : getMessages,
+      cleanMessagesForObject : cleanMessagesForObject,
+      addObjectInCollision : addObjectInCollision,
+      getObjectInCollision : getObjectInCollision,
+      deleteObjectInCollision : deleteObjectInCollision,
 
       //Object Engine
       createMesh : createMesh,

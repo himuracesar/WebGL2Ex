@@ -13,11 +13,12 @@
     <script type="text/javascript" src="../../WebGLEngine/engine/light/SpotLight.js"></script>
     <script type="text/javascript" src="../../WebGLEngine/engine/Shape.js"></script>
     <script type="text/javascript" src="../../WebGLEngine/engine/Ray.js"></script>
+    <script type="text/javascript" src="../../WebGLEngine/engine/CollisionManager.js"></script>
+    <script type="text/javascript" src="../../WebGLEngine/engine/Actor.js"></script>
 
     <script type="text/javascript" src="Player.js"></script>
     <script type="text/javascript" src="BulletPlayer.js"></script>
-
-    <script type="text/javascript" src="../../WebGLEngine/engine/pipeline/AxisPipeline.js"></script>
+    <script type="text/javascript" src="enemies/Simple.js"></script>
 </head>
 <body onload="init();">
     <!--canvas id="webGLcanvas"-->
@@ -41,6 +42,10 @@
         //------------- Player ----------------
         var player;
 
+        //------------- Enemies ----------------
+        var enemy_t1;
+        var mesh_enemy_t1;
+
         //------------- Meshes ----------------
         var grid;
         var floor;
@@ -56,12 +61,16 @@
         //------------- Materials --------------
         var m_gray;
         var m_whiteGray;
+        var m_fucsia;
 
         //------------- Lights -----------------
         var directionalLight;
 
         //------------- Textures ---------------
         var tex_g1462;
+
+        //------------- Collisions ---------------
+        var cm;
 
         //----------------------------------
 
@@ -177,10 +186,11 @@
             if (!this.dragging) 
                 return;
         }
-    
+
         function init(){
             canvas = document.getElementById("webGLcanvas");
             gl = webGLengine.initWebGL(canvas);
+            //webGLengine.autoResizeCanvas(canvas);
 
             window.onkeydown = event => this.onKeyDown(event);
             window.onkeyup = event => this.onKeyUp(event);
@@ -196,7 +206,6 @@
 
             simplePipeline = new SimplePipeline(gl);
             cookTorrancePipeline = new CookTorrancePipeline(gl);
-            axisPipeline = new AxisPipeline(gl);
 
             tex_g1462 = webGLengine.createTexture(gl, "textures/g1462.png");
 
@@ -228,6 +237,19 @@
             m_whiteGray.setFresnel(0.0);
             m_whiteGray.setHasTexture(false);
             m_whiteGray.setDiffuseTextureIndex(0);
+
+            m_fucsia = new Material();
+            m_fucsia.setDiffuseColor([0.6, 0.2, 1.0, 1.0]);
+            m_fucsia.setAmbientColor([0.6, 0.2, 1.0, 1.0]);
+            m_fucsia.setSpecularColor([1.0, 1.0, 1.0, 1.0]);
+            m_fucsia.setSpecularPower(32.0);
+            m_fucsia.setBindingPoint(0);
+            m_fucsia.setName("M_FUCSIA");
+            m_fucsia.setMetallness(0.5);
+            m_fucsia.setRoughness(1.0);
+            m_fucsia.setFresnel(0.0);
+            m_fucsia.setHasTexture(false);
+            m_fucsia.setDiffuseTextureIndex(0);
 
             //------------- Meshes -----------------
             var shape = new Shape();
@@ -279,12 +301,35 @@
             cube.setMaterial(0, m_whiteGray);
             cube.getSubmesh(0).materialIndex = 0;
 
+            descriptor = {};
+            descriptor.radio = 20.0;
+            descriptor.slices = 20;
+            descriptor.stacks = 20
+
+            mesh_enemy_t1 = shape.CreateSphere(descriptor);
+            mesh_enemy_t1.setMaterial(0, m_fucsia);
+            mesh_enemy_t1.getSubmesh(0).materialIndex = 0;
+            webGLengine.setResource("enemy_t1", mesh_enemy_t1);
+
+            //------------------- Enemies -------------------
+            enemy_t1 = new Simple("enemy_t1");
+
             //------------- Lights -----------------
             directionalLight = new DirectionalLight();
             directionalLight.setBindingPoint(1);
             directionalLight.setEnabled(true);
             directionalLight.setColor([1.0, 1.0, 1.0, 1.0]);
 
+            //------------- Collisions -----------------
+            cm = new CollisionManager();
+            cm.addElementToGroup(player, "player");
+            cm.addElementToGroup(enemy_t1, "enemies");
+
+            cm.addCollisionRelation("player", "enemies");
+
+            //------------- Game -----------------
+            
+            
             render();
         }
 
@@ -334,16 +379,13 @@
 
             player.render(cookTorrancePipeline);
 
-            /*gl.enable(gl.BLEND);
-            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);*/
-
-            /*outlinePipeline.use();
-            gl.uniformMatrix4fv(outlinePipeline.getUniformLocation("u_mProj"), false, camera.getProjectionMatrix());
-            gl.uniformMatrix4fv(outlinePipeline.getUniformLocation("u_mView"), false, camera.getViewMatrix());*/
-            //gl.uniform3fv(outlinePipeline.getUniformLocation("u_camera_position"), camera.getPosition());
-
-            cube.setPosition([0.0, 25.0, -50.0]);
+            cube.setPosition([250.0, 25.0, -10.0]);
             cube.render(cookTorrancePipeline, RenderMode.Triangles);
+
+            enemy_t1.setPosition([0.0, 25.0, -50.0]);
+            enemy_t1.render(cookTorrancePipeline, RenderMode.Triangles);
+
+            cm.checkCollisions();
 
             requestAnimationFrame(render);
         }

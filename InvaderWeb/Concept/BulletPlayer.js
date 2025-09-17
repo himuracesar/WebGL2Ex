@@ -3,19 +3,32 @@
  * @author César Himura
  * @version 1.0
  */
-class BulletPlayer {
+class BulletPlayer extends Actor {
+    
+    static Status = Object.freeze({
+        LIVE: 1,
+        DEATH: 0
+    });
+    
     /**
      * Make a new bullet
      * @param {string} idMesh Name of the mesh represents the bullet
      */
     constructor(idMesh) {
+        super();
+
         this.mesh = webGLengine.getResource(idMesh);
         this.position = [0.0, 0.0, 0.0];
         this.speed = 20.0;
         this.direction = [0.0, 0.0, 0.0];
-        this.birthTime = (new Date()).getTime();
+        //this.birthTime = (new Date()).getTime();
+        this.lifespan = 1000.0; //miliseconds
+        this.id = "BP" + this.birthTime;
+        this.life = 1.0;
 
         this.bounding = new SphereBounding({ radio: 8.0, position: this.position });
+
+        this.status = BulletPlayer.Status.LIVE;
     }
 
     /**
@@ -23,6 +36,11 @@ class BulletPlayer {
      * @param {Pipeline} pipeline 
      */
     render(pipeline) {
+        super.processMessages();
+
+        if(this.status == BulletPlayer.Status.DEATH)
+            return;
+
         if(this.mesh != null){
             this.setPosition([
                 this.direction[0] * this.speed + this.position[0], 
@@ -36,28 +54,21 @@ class BulletPlayer {
     }
 
     /**
-     * Set the position
-     * @param {Vector3} position 
+     * This is triggering when the object is on collision
+     * @param {Object} object Object with 
      */
-    setPosition(position){
-        this.position = position;
-        this.mesh.setPosition(this.position);
-        this.bounding.setPosition(this.position);
+    onCollision(object) {
+        super.onCollision(object);
+        //debugger;
+        console.log("bullet player collision!");
+        this.status = BulletPlayer.Status.DEATH;
     }
 
     /**
-     * Set the direction
-     * @param {Vector3} direction 
+     * Get status of the bullet
+     * @returns {Status enum} Status of the bullet
      */
-    setDirection(direction){
-        this.direction = direction;
-    }
-
-    /**
-     * Get time when bullet born
-     * @returns {long}
-     */
-    getBirthTime() {
-        return this.birthTime;
+    getStatus(){
+        return this.status;
     }
 }
