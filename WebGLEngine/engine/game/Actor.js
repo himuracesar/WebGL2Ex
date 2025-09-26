@@ -26,6 +26,13 @@ class Actor {
     }
 
     /**
+     * Update all logic  data
+     */
+    update(){
+
+    }
+
+    /**
      * Render function must be implemented in chidren classes
      */
     render(pipeline) {
@@ -173,7 +180,7 @@ class Actor {
     }
 
     onCollision(object){
-        console.log("On Collision Actor");
+        //console.log("On Collision Actor");
         webGLengine.deleteObjectInCollision(this.id);
     }
 }

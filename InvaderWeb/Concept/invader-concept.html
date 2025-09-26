@@ -13,12 +13,13 @@
     <script type="text/javascript" src="../../WebGLEngine/engine/light/SpotLight.js"></script>
     <script type="text/javascript" src="../../WebGLEngine/engine/Shape.js"></script>
     <script type="text/javascript" src="../../WebGLEngine/engine/Ray.js"></script>
-    <script type="text/javascript" src="../../WebGLEngine/engine/CollisionManager.js"></script>
-    <script type="text/javascript" src="../../WebGLEngine/engine/Actor.js"></script>
+    <script type="text/javascript" src="../../WebGLEngine/engine/game/Actor.js"></script>
+    <script type="text/javascript" src="../../WebGLEngine/engine/game/CollisionManager.js"></script>
 
     <script type="text/javascript" src="Player.js"></script>
     <script type="text/javascript" src="BulletPlayer.js"></script>
     <script type="text/javascript" src="enemies/Simple.js"></script>
+    <script type="text/javascript" src="enemies/BulletEnemy.js"></script>
 </head>
 <body onload="init();">
     <!--canvas id="webGLcanvas"-->
@@ -38,6 +39,8 @@
         var dragging = false;
 
         var projectMode = ProjectMode.Development;
+
+        var shape;
 
         //------------- Player ----------------
         var player;
@@ -62,6 +65,7 @@
         var m_gray;
         var m_whiteGray;
         var m_fucsia;
+        var m_damage;
 
         //------------- Lights -----------------
         var directionalLight;
@@ -251,8 +255,22 @@
             m_fucsia.setHasTexture(false);
             m_fucsia.setDiffuseTextureIndex(0);
 
+            m_damage = new Material();
+            m_damage.setDiffuseColor([1.0, 0.366, 0.0, 1.0]);
+            m_damage.setAmbientColor([0.6, 0.1, 0.0, 1.0]);
+            m_damage.setSpecularColor([1.0, 1.0, 1.0, 1.0]);
+            m_damage.setSpecularPower(32.0);
+            m_damage.setBindingPoint(0);
+            m_damage.setName("M_DAMAGE");
+            m_damage.setMetallness(0.5);
+            m_damage.setRoughness(1.0);
+            m_damage.setFresnel(0.0);
+            m_damage.setHasTexture(false);
+            m_damage.setDiffuseTextureIndex(0);
+
             //------------- Meshes -----------------
-            var shape = new Shape();
+            //var shape = new Shape();
+            shape = new Shape();
 
             descriptor = {};
             descriptor.delta = [100.0, 0.0, 100.0];
@@ -284,13 +302,13 @@
 
             sphereProcedural = shape.CreateSphere(descriptor);
 
-            descriptor = {};
+            /*descriptor = {};
             descriptor.radio = 8.0;
             descriptor.slices = 6;
             descriptor.stacks = 6;
 
             bullet = shape.CreateSphere(descriptor);
-            webGLengine.setResource("bullet", bullet);
+            webGLengine.setResource("bullet", bullet);*/
 
             descriptor = {};
             descriptor.width = 50.0;
@@ -330,7 +348,20 @@
             //------------- Game -----------------
             
             
-            render();
+            updateAndRender();
+        }
+
+        function update(){
+            player.update();
+
+            enemy_t1.setPosition([0.0, 25.0, -50.0]);
+            enemy_t1.update();
+
+            floor.setPosition([0.0, 0.0, 0.0]);
+
+            cube.setPosition([250.0, 25.0, -10.0]);
+
+            cm.checkCollisions();
         }
 
         function render(){
@@ -374,20 +405,20 @@
 
             cookTorrancePipeline.setLight(directionalLight, "u_directional_light");
 
-            floor.setPosition([0.0, 0.0, 0.0]);
             floor.render(cookTorrancePipeline, RenderMode.Triangles);
 
             player.render(cookTorrancePipeline);
 
-            cube.setPosition([250.0, 25.0, -10.0]);
             cube.render(cookTorrancePipeline, RenderMode.Triangles);
 
-            enemy_t1.setPosition([0.0, 25.0, -50.0]);
             enemy_t1.render(cookTorrancePipeline, RenderMode.Triangles);
+        }
 
-            cm.checkCollisions();
+        function updateAndRender(){
+            update();
+            render();
 
-            requestAnimationFrame(render);
+            requestAnimationFrame(updateAndRender);
         }
     </script>
 </body>

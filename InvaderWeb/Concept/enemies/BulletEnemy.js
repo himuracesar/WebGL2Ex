@@ -1,9 +1,9 @@
 /**
- * Bullet of the player
+ * Bullet of the enemy
  * @author César Himura
  * @version 1.0
  */
-class BulletPlayer extends Actor {
+class BulletEnemy extends Actor {
     
     static Status = Object.freeze({
         LIVE: 1,
@@ -19,38 +19,40 @@ class BulletPlayer extends Actor {
 
         //this.mesh = webGLengine.getResource(idMesh);
         descriptor = {};
-        descriptor.radio = 8.0;
-        descriptor.slices = 6;
-        descriptor.stacks = 6;
+        descriptor.radio = 15.0;
+        descriptor.slices = 8;
+        descriptor.stacks = 8;
 
         this.mesh = shape.CreateSphere(descriptor);
         this.position = [0.0, 0.0, 0.0];
-        this.speed = 20.0;
+        this.speed = 0.5;
         this.direction = [0.0, 0.0, 0.0];
         //this.birthTime = (new Date()).getTime();
-        this.lifespan = 1000.0; //milliseconds
-        this.id = "BP" + this.birthTime;
+        this.lifespan = 10000.0; //milliseconds
+        this.id = "BE" + this.birthTime;
         this.life = 1.0;
 
         this.bounding = new SphereBounding({ radio: 8.0, position: this.position });
 
-        this.status = BulletPlayer.Status.LIVE;
+        this.status = BulletEnemy.Status.LIVE;
     }
 
     /**
-     * Update all logic data
+     * Update all logic  data
      */
     update(){
         super.processMessages();
 
-        if(this.status == BulletPlayer.Status.DEATH)
+        if(this.status == BulletEnemy.Status.DEATH)
             return;
 
-        this.setPosition([
-            this.direction[0] * this.speed + this.position[0], 
-            this.position[1],
-            this.direction[2] * this.speed + this.position[2]
-        ]);
+        if(this.mesh != null){
+            this.setPosition([
+                this.direction[0] * this.speed + this.position[0], 
+                this.position[1], 
+                this.direction[2] * this.speed + this.position[2]
+            ]);
+        }
     }
 
     /**
@@ -72,7 +74,7 @@ class BulletPlayer extends Actor {
         super.onCollision(object);
         //debugger;
         //console.log("bullet player collision!");
-        this.status = BulletPlayer.Status.DEATH;
+        this.status = BulletEnemy.Status.DEATH;
     }
 
     /**
