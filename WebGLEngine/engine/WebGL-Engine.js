@@ -48,6 +48,8 @@ include("/WebGLEngine/engine/Material.js");
 include("/WebGLEngine/engine/texture/Texture.js");
 include("/WebGLEngine/engine/bounding/BoundingVolume.js");
 include("/WebGLEngine/engine/bounding/SphereBounding.js");
+include("/WebGLEngine/engine/RenderTarget.js");
+
 
 (function(root, factory){
     if (typeof define === 'function' && define.amd) {
@@ -179,7 +181,7 @@ include("/WebGLEngine/engine/bounding/SphereBounding.js");
     function getAttributeLocation(gl, program, location){
       var in_loc = gl.getAttribLocation(program, location);
       if(in_loc < 0){
-          console.log("The attribute " + location + " couldn't find in shaders");
+          console.log("The attribute " + location + " couldn't find in the shaders");
           return;
       }
 
@@ -767,7 +769,7 @@ function parseLib(textLib) {
       dicmat[material.getName()] = mesh.getNumMaterials();
       
       if(mat.map_Kd !== undefined && mat.map_Kd != "") {
-        var texture = createTexture(gl, basePath + mat.map_Kd, true);
+        var texture = createTextureFromFile(gl, basePath + mat.map_Kd, true);
         
         material.setDiffuseTextureIndex(mesh.getNumTextures());
         material.setHasTexture(true);
@@ -832,7 +834,7 @@ function parseLib(textLib) {
    * @param {boolean} flipY True or false to flip the texture in Y
    * @returns 
    */
-  function createTexture(gl, filename, flipY){
+  function createTextureFromFile(gl, filename, flipY){
     var texture = new Texture();
 
     var image = new Image();
@@ -848,12 +850,44 @@ function parseLib(textLib) {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, flipY);
       //gl.generateMipmap(gl.TEXTURE_2D);
-      gl.bindTexture(gl.TEXTURE_2D , null);
+      gl.bindTexture(gl.TEXTURE_2D, null);
 
       texture.setTexture(gltex);
     }
     
     return texture;
+  }
+
+  /**
+   * Create a texture for the configuration passed as argument
+   * @param {Object} config It is an array of array. The configuration is:
+   *    - params: [Target's name, param's name, param's value]
+   *    - type: int (for texparamateri) | float (for texparamaterf) 
+   * @returns {Texture} A texture ready to use
+   */
+  function createTexture(config = null) {
+      var texture = new Texture();
+
+      var tex = gl.createTexture(); // Create a texture object
+
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, config.width, config.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+
+      if(config != null && config.type == "float"){
+        for(var i = 0; i < config.params.length; i++){
+            gl.texParameterf(config.params[i][0], config.params[i][1], config.params[i][2]);
+        }
+      }
+
+      if(config != null && config.type == "int"){
+        for(var i = 0; i < config.params.length; i++){
+            gl.texParameteri(config.params[i][0], config.params[i][1], config.params[i][2]);
+        }
+      }
+
+      texture.setTexture(tex);
+
+      return texture;
   }
 
   /**
@@ -1081,6 +1115,58 @@ function parseLib(textLib) {
     this.objectsInCollision.delete(key);
   }
 
+  /**
+   * Target's name
+   */
+  /*TextureTNames = Object.freeze({
+      Texture2D : gl.TEXTURE_2D,
+      CubeMap : gl.TEXTURE_CUBE_MAP,
+      Texture3D : gl.TEXTURE_3D,
+      Texture2DArray : gl.TEXTURE_2D_ARRAY
+  });*/
+
+  /**
+   * Param's names for texparameter[i][f] function 
+   */
+  /*TexturePNames = Object.freeze({
+      MagFilter : gl.TEXTURE_MAG_FILTER,
+      MinFilter : gl.TEXTURE_MIN_FILTER,
+      WrapS : gl.TEXTURE_WRAP_S,
+      WrapT : gl.TEXTURE_WRAP_T,
+      BaseLevel : gl.TEXTURE_BASE_LEVEL,
+      CompareFunc : gl.TEXTURE_COMPARE_FUNC,
+      CompareMode : gl.TEXTURE_COMPARE_MODE,
+      MaxLevel : gl.TEXTURE_MAX_LEVEL,
+      MaxLod : gl.TEXTURE_MAX_LOD,
+      MinLod : gl.TEXTURE_MIN_LOD,
+      WrapR : gl.TEXTURE_WRAP_R
+  });*/
+
+  /**
+   * Param's values for texparameter[i][f] function
+   */
+  /*TexturePValues = Object.freeze({
+      Linear : gl.LINEAR, 
+      Nearest : gl.NEAREST, 
+      NearestMipmapNearest : gl.NEAREST_MIPMAP_NEAREST, 
+      LinearMipmapearest : gl.LINEAR_MIPMAP_NEAREST, 
+      NearestMipmapLinear : gl.NEAREST_MIPMAP_LINEAR, 
+      LinearMipmapLinear : gl.LINEAR_MIPMAP_LINEAR,
+      Repeat : gl.REPEAT, 
+      ClampToEdge : gl.CLAMP_TO_EDGE, 
+      MirroredRepeat : gl.MIRRORED_REPEAT,
+      Lequal : gl.LEQUAL, 
+      Gequal : gl.GEQUAL, 
+      Less : gl.LESS, 
+      Greater : gl.GREATER, 
+      Equal : gl.EQUAL, 
+      Notequal : gl.NOTEQUAL, 
+      Always : gl.ALWAYS, 
+      Never : gl.NEVER,
+      None : gl.NONE, 
+      CompareRefToTexture : gl.COMPARE_REF_TO_TEXTURE
+  });*/
+
   return {
       initWebGL : initWebGL, 
       autoResizeCanvas : autoResizeCanvas,
@@ -1108,14 +1194,18 @@ function parseLib(textLib) {
       //Object Engine
       createMesh : createMesh,
       createMeshByObjFile : createMeshByObjFile,
+      createTextureFromFile : createTextureFromFile,
       createTexture : createTexture,
       //Functions
       rgbToHex : rgbToHex,
       hexToRgb : hexToRgb,
       loadShaderFromFile : loadShaderFromFile,
       //readTextFile : readTextFile
-
       pickingRay : pickingRay
+
+      /*TextureTNames : TextureTNames,
+      TexturePNames : TexturePNames,
+      TexturePValues : TexturePValues*/
   }
 
   })

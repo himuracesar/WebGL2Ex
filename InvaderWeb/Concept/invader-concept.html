@@ -5,14 +5,20 @@
     <title>Invader Web - Game Concept</title>
 
     <script type="text/javascript" src="../../WebGLEngine/engine/WebGL-Engine.js"></script>
+
     <script type="text/javascript" src="../../WebGLEngine/engine/pipeline/Pipeline.js"></script>
     <script type="text/javascript" src="../../WebGLEngine/engine/pipeline/SimplePipeline.js"></script>
     <script type="text/javascript" src="../../WebGLEngine/engine/pipeline/CookTorrancePipeline.js"></script>
+    <script type="text/javascript" src="../../WebGLEngine/engine/pipeline/CookTorranceShadowsPipeline.js"></script>
+    <script type="text/javascript" src="../../WebGLEngine/engine/pipeline/ShadowMapPipeline.js"></script>
+    <script type="text/javascript" src="../../WebGLEngine/engine/pipeline/ScreenPipeline.js"></script>
+
     <script type="text/javascript" src="../../WebGLEngine/engine/light/DirectionalLight.js"></script>
     <script type="text/javascript" src="../../WebGLEngine/engine/light/PointLight.js"></script>
     <script type="text/javascript" src="../../WebGLEngine/engine/light/SpotLight.js"></script>
     <script type="text/javascript" src="../../WebGLEngine/engine/Shape.js"></script>
     <script type="text/javascript" src="../../WebGLEngine/engine/Ray.js"></script>
+    <script type="text/javascript" src="../../WebGLEngine/engine/Screen.js"></script>
     <script type="text/javascript" src="../../WebGLEngine/engine/game/Actor.js"></script>
     <script type="text/javascript" src="../../WebGLEngine/engine/game/CollisionManager.js"></script>
 
@@ -38,9 +44,16 @@
         var lastY = 0;
         var dragging = false;
 
+        const InputMode = Object.freeze({
+            Development : 0,
+            Game : 1
+        });
+
         var projectMode = ProjectMode.Development;
+        var inputMode = InputMode.Development;
 
         var shape;
+        var rtShadows;
 
         //------------- Player ----------------
         var player;
@@ -55,20 +68,26 @@
         var sphereProcedural;
         var bullet;
         var cube;
+        var screen;
 
         //------------- Pipelines -------------
         var simplePipeline;
         var cookTorrancePipeline;
         var axisPipeline;
+        var shadowMapPipeline;
+        var ctShadowsPipeline;
+        var screenPipeline;
 
         //------------- Materials --------------
         var m_gray;
         var m_whiteGray;
         var m_fucsia;
         var m_damage;
+        var m_whiteDebug;
 
         //------------- Lights -----------------
         var directionalLight;
+        var lightShadow;
 
         //------------- Textures ---------------
         var tex_g1462;
@@ -76,9 +95,23 @@
         //------------- Collisions ---------------
         var cm;
 
+        //------------- Screens ---------------
+        var depthScreen;
+
         //----------------------------------
 
         function input(){
+            if(keypress[KeyCode.Ctrl] && keypress[KeyCode.I]){
+                inputMode = (inputMode == InputMode.Development) ? InputMode.Game : InputMode.Development;
+            }
+
+            if(inputMode == InputMode.Development)
+                inputEngine();
+            else if(inputMode == InputMode.Game)
+                inputPlayer();
+        }
+
+        function inputEngine(){
             if(keypress[KeyCode.W])
                 camera.moveForward(1);
             if(keypress[KeyCode.S])
@@ -210,8 +243,11 @@
 
             simplePipeline = new SimplePipeline(gl);
             cookTorrancePipeline = new CookTorrancePipeline(gl);
+            shadowMapPipeline = new ShadowMapPipeline(gl);
+            ctShadowsPipeline = new CookTorranceShadowsPipeline(gl);
+            screenPipeline = new ScreenPipeline(gl);
 
-            tex_g1462 = webGLengine.createTexture(gl, "textures/g1462.png");
+            tex_g1462 = webGLengine.createTextureFromFile(gl, "textures/g1462.png");
 
             player = new Player();
 
@@ -268,8 +304,20 @@
             m_damage.setHasTexture(false);
             m_damage.setDiffuseTextureIndex(0);
 
+            m_whiteDebug = new Material();
+            m_whiteDebug.setDiffuseColor([1.0, 1.0, 1.0, 1.0]);
+            m_whiteDebug.setAmbientColor([1.0, 1.0, 1.0, 1.0]);
+            m_whiteDebug.setSpecularColor([1.0, 1.0, 1.0, 1.0]);
+            m_whiteDebug.setSpecularPower(32.0);
+            m_whiteDebug.setBindingPoint(0);
+            m_whiteDebug.setName("M_WHITE_DEBUG");
+            m_whiteDebug.setMetallness(0.0);
+            m_whiteDebug.setRoughness(1.0);
+            m_whiteDebug.setFresnel(0.0);
+            m_whiteDebug.setHasTexture(true);
+            m_whiteDebug.setDiffuseTextureIndex(0);
+
             //------------- Meshes -----------------
-            //var shape = new Shape();
             shape = new Shape();
 
             descriptor = {};
@@ -301,14 +349,6 @@
             descriptor.stacks = 20;
 
             sphereProcedural = shape.CreateSphere(descriptor);
-
-            /*descriptor = {};
-            descriptor.radio = 8.0;
-            descriptor.slices = 6;
-            descriptor.stacks = 6;
-
-            bullet = shape.CreateSphere(descriptor);
-            webGLengine.setResource("bullet", bullet);*/
 
             descriptor = {};
             descriptor.width = 50.0;
@@ -345,13 +385,26 @@
 
             cm.addCollisionRelation("player", "enemies");
 
+            //------------- Screen ---------------
+            depthScreen = new Screen(150, 100);
+            depthScreen.setPosition([10.0, 10.0, 0.0]);
+
             //------------- Game -----------------
             
+            rtShadows = new RenderTarget(canvas.width, canvas.height);
+            //rtShadows = new RenderTarget(400, 400);
+
+            lightShadow = {};
+            lightShadow.position = [0.0, 100.0, -150.0, 1.0];
+            lightShadow.view = m4.inverse(m4.lookAt([lightShadow.position[0], lightShadow.position[1], lightShadow.position[2]], player.getPosition(), [0.0, 1.0, 0.0]));
+            lightShadow.perspective = m4.perspective(webGLengine.degreeToRadian(45.0), rtShadows.getWidth() / rtShadows.getHeight(), 0.1, 1000.0);
             
             updateAndRender();
         }
 
         function update(){
+            input();
+
             player.update();
 
             enemy_t1.setPosition([0.0, 25.0, -50.0]);
@@ -362,9 +415,31 @@
             cube.setPosition([250.0, 25.0, -10.0]);
 
             cm.checkCollisions();
+
+            depthScreen.setTexture(rtShadows.getTexture(0));
+            depthScreen.update();
         }
 
         function render(){
+            rtShadows.bind();
+            gl.viewport(0, 0, rtShadows.getWidth(), rtShadows.getHeight());
+            gl.clearColor(0.0, 0.0, 0.0, 1.0);
+            //gl.clearDepth(1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            /*gl.enable(gl.DEPTH_TEST);
+            gl.enable(gl.CULL_FACE);
+            gl.cullFace(gl.BACK);*/
+
+            shadowMapPipeline.use();
+
+            shadowMapPipeline.setMatrix("u_mProj", lightShadow.perspective);
+            shadowMapPipeline.setMatrix("u_mView", lightShadow.view);
+
+            player.render(shadowMapPipeline);
+
+            rtShadows.unbind();
+
             gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
             gl.clearColor(0.4, 0.6, 0.9, 1.0);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -376,9 +451,6 @@
             gl.cullFace(gl.BACK);
 
             console.log("Render");
-
-            //input();
-            inputPlayer();
 
             /*simplePipeline.use();
 
@@ -398,6 +470,8 @@
 
             sphereProcedural.render(simplePipeline, RenderMode.Triangles);
 
+            simplePipeline.unuse();
+
             cookTorrancePipeline.use();
             gl.uniformMatrix4fv(cookTorrancePipeline.getUniformLocation("u_mProj"), false, camera.getProjectionMatrix());
             gl.uniformMatrix4fv(cookTorrancePipeline.getUniformLocation("u_mView"), false, camera.getViewMatrix());
@@ -405,13 +479,36 @@
 
             cookTorrancePipeline.setLight(directionalLight, "u_directional_light");
 
-            floor.render(cookTorrancePipeline, RenderMode.Triangles);
+            //floor.render(cookTorrancePipeline);
 
             player.render(cookTorrancePipeline);
 
-            cube.render(cookTorrancePipeline, RenderMode.Triangles);
+            cube.render(cookTorrancePipeline);
 
-            enemy_t1.render(cookTorrancePipeline, RenderMode.Triangles);
+            enemy_t1.render(cookTorrancePipeline);
+
+            /*screen.rotateX(webGLengine.degreeToRadian(90.0));
+            screen.setPosition([0.0, 250.0, -250.0]);
+            screen.render(cookTorrancePipeline);*/
+
+            cookTorrancePipeline.unuse();
+
+            ctShadowsPipeline.use();
+            gl.uniformMatrix4fv(ctShadowsPipeline.getUniformLocation("u_mProj"), false, camera.getProjectionMatrix());
+            gl.uniformMatrix4fv(ctShadowsPipeline.getUniformLocation("u_mView"), false, camera.getViewMatrix());
+            gl.uniform3fv(ctShadowsPipeline.getUniformLocation("u_camera_position"), camera.getPosition());
+
+            ctShadowsPipeline.setLight(directionalLight, "u_directional_light");
+            ctShadowsPipeline.setUniformSampler("u_shadowMap", rtShadows.getTexture(0).getWebGLTexture());
+            ctShadowsPipeline.setUniformMatrix4x4("u_mLightProjection", lightShadow.perspective);
+            ctShadowsPipeline.setUniformMatrix4x4("u_mLightView", lightShadow.view);
+
+            floor.render(ctShadowsPipeline);
+
+            ctShadowsPipeline.unuse();
+
+            // --- PASADA 2: RENDERIZADO 2D (OVERLAY ORTOGONAL) ---
+            depthScreen.render(screenPipeline);
         }
 
         function updateAndRender(){

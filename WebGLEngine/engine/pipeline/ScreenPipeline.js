@@ -1,49 +1,41 @@
-
 /**
- * Simple pipeline. The shaders only draw the position and color of the vertices
+ * To draw textures in orthogrphics projection
  * @author César Himura
  * @version 1.0
  */
-class SimplePipeline extends Pipeline {
+class ScreenPipeline extends Pipeline {
 
-    constructor(gl){
+    constructor(){
         var vertexShaderSrc = `#version 300 es
-            precision mediump float;
-
             layout(location=0) in vec3 in_position;
             layout(location=1) in vec2 in_texcoord;
-            layout(location=2) in vec3 in_normal;
-
-            out vec3 o_normal;
-            out vec2 o_texcoord;
-
-            uniform mat4 u_mProj;
-            uniform mat4 u_mView;
+            
+            uniform mat4 u_mOrtho;
             uniform mat4 u_mModel;
-
-            void main(){
-                gl_Position = u_mProj * u_mView * u_mModel * vec4(in_position, 1.0);
-                o_normal = in_normal;
+            
+            out vec2 o_texcoord;
+            
+            void main() {
+                gl_Position = u_mOrtho *  u_mModel * vec4(in_position, 1.0f);
                 o_texcoord = in_texcoord;
             }
         `;
 
         var fragmentShaderSrc = `#version 300 es
-            precision mediump float;
-
-            uniform vec4 u_color;
-
-            in vec3 o_normal;
+            precision highp float;
+            
             in vec2 o_texcoord;
-
+            
+            uniform sampler2D u_texture;
+            
             out vec4 color;
-
-            void main(){
-                color = u_color;
+            
+            void main() {
+                color = texture(u_texture, o_texcoord);
             }
         `;
     
-        let vertexFormat = { "in_position" : 3, "in_texcoord" : 2, "in_normal" : 3 };
+        let vertexFormat = { "in_position" : 3, "in_texcoord" : 2 };
 
         super(gl, vertexShaderSrc, fragmentShaderSrc, vertexFormat);
 
@@ -51,25 +43,21 @@ class SimplePipeline extends Pipeline {
         
         var in_position = webGLengine.getAttributeLocation(gl, this.getProgram(), "in_position");
         var in_texcoord = webGLengine.getAttributeLocation(gl, this.getProgram(), "in_texcoord");
-        var in_normal = webGLengine.getAttributeLocation(gl, this.getProgram(), "in_normal");
 
         attributes.set("in_position", in_position);
         attributes.set("in_texcoord", in_texcoord);
-        attributes.set("in_normal", in_normal);
 
         this.attributes = attributes;
 
         let uniforms = new Map();
 
-        var u_mProj = gl.getUniformLocation(this.getProgram(), "u_mProj");
-        var u_mView = gl.getUniformLocation(this.getProgram(), "u_mView");
+        var u_mOrtho = gl.getUniformLocation(this.getProgram(), "u_mOrtho");
         var u_mModel = gl.getUniformLocation(this.getProgram(), "u_mModel");
-        var u_color = gl.getUniformLocation(this.getProgram(), "u_color");
+        var u_texture = gl.getUniformLocation(this.getProgram(), "u_texture");
 
-        uniforms.set("u_mProj", u_mProj);
-        uniforms.set("u_mView", u_mView);
+        uniforms.set("u_mOrtho", u_mOrtho);
         uniforms.set("u_mModel", u_mModel);
-        uniforms.set("u_color", u_color)
+        uniforms.set("u_texture", u_texture);
 
         this.uniforms = uniforms;
     }
@@ -79,13 +67,6 @@ class SimplePipeline extends Pipeline {
      */
     use(){
         super.use();
-    }
-
-    /**
-     * Unbound the program
-     */
-    unuse(){
-        super.unuse();
     }
 
     /**
@@ -121,9 +102,4 @@ class SimplePipeline extends Pipeline {
     getVertexFormat(){
         return this.vertexFormat;
     }
-
-    setColor(color){
-        gl.uniform4fv(this.getUniformLocation("u_color"), color);
-    }
-    
 }

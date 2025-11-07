@@ -55,7 +55,7 @@ class StaticMesh {
         this.up = m4.transformVector(mModel, [0.0, 1.0, 0.0, 0.0]);
 
         gl.uniformMatrix4fv(pipeline.getUniformLocation("u_mModel"), false, mModel);
-        
+
         gl.bindVertexArray(this.vao);
         
         for(var i = 0; i < this.submeshes.length; i++){
@@ -93,11 +93,11 @@ class StaticMesh {
                 
                     var iSampler = 0;
                     while(pipeline.getUniformLocation("u_sampler" + iSampler) !== undefined && this.materials[this.submeshes[i].materialIndex].hasTexture()){
-                        if(this.textures[this.materials[this.submeshes[i].materialIndex].diffuseTextureIndex].getTexture() == null)
+                        if(this.textures[this.materials[this.submeshes[i].materialIndex].diffuseTextureIndex].getWebGLTexture() == null)
                             break;
 
                         gl.activeTexture(gl.TEXTURE0 + iSampler);
-                        gl.bindTexture(gl.TEXTURE_2D, this.textures[this.materials[this.submeshes[i].materialIndex].diffuseTextureIndex].getTexture());
+                        gl.bindTexture(gl.TEXTURE_2D, this.textures[this.materials[this.submeshes[i].materialIndex].diffuseTextureIndex].getWebGLTexture());
                         /**
                          * TODO The 0 value must be dynamic. The engine have to decide the value.
                          */
@@ -121,12 +121,15 @@ class StaticMesh {
             }
         }
 
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         gl.bindBuffer(gl.UNIFORM_BUFFER, null);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
         gl.bindTexture(gl.TEXTURE_2D, null);
         gl.bindVertexArray(null);
         gl.useProgram(null);
+
+        pipeline.unuse();
     }
 
     /**
@@ -139,7 +142,7 @@ class StaticMesh {
 
     /**
      * Get Vertex Array Object
-     * @returns the vertex array object of the mesh
+     * @returns {WebGLVertexArrayObject} the vertex array object of the mesh
      */
     getVao(){
         return this.vao;

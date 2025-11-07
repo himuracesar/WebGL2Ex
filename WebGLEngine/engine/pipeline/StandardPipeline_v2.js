@@ -74,6 +74,13 @@ class StandardPipeline_v2 extends Pipeline {
     }
 
     /**
+     * Unbound the program
+     */
+    unuse(){
+        super.unuse();
+    }
+
+    /**
      * Get the program that links the shaders
      * @returns {GLprogram} program
      */

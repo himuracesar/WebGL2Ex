@@ -49,7 +49,7 @@ class Camera {
         this.right = m4.transformVector(mView, [1.0, 0.0, 0.0, 0.0],);
         this.up = m4.transformVector(mView, [0.0, 1.0, 0.0, 0.0]);
         
-        var cameraMatrix = m4.lookAt([mView[12], mView[13],mView[14]], this.target, this.up);
+        //var cameraMatrix = m4.lookAt([mView[12], mView[13],mView[14]], this.target, this.up);
         //cameraMatrix = m4.multiply(cameraMatrix, mView)
 
         this.velocity = [0.0, 0.0, 0.0];

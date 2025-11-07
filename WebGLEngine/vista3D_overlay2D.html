@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebGL2: Vista 3D con Overlay Ortogonal</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #333; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <canvas id="gl-canvas" width="800" height="600"></canvas>
+
+    <!--script id="vertex-shader-3d" type="x-shader/x-vertex">
+        #version 300 es
+        layout(location=0) in vec4 a_position;
+        layout(location=1) in vec3 a_normal; // No se usa pero es buena práctica para 3D
+        layout(location=2) in vec2 a_texcoord; // Coordenadas de textura para el cubo
+        
+        uniform mat4 u_matrix;
+        
+        out vec2 v_texcoord;
+        
+        void main() {
+            gl_Position = u_matrix * a_position;
+            v_texcoord = a_texcoord;
+        }
+    </script>
+
+    <script id="fragment-shader-3d" type="x-shader/x-fragment">
+        #version 300 es
+        precision highp float;
+        
+        in vec2 v_texcoord;
+        
+        uniform sampler2D u_texture;
+        
+        out vec4 outColor;
+        
+        void main() {
+            // Un color simple para el cubo. Podrías usar texture(u_texture, v_texcoord);
+            // para una textura real.
+            outColor = vec4(v_texcoord.x, 0.5, v_texcoord.y, 1.0); 
+        }
+    </script>
+
+    <script id="vertex-shader-2d" type="x-shader/x-vertex">
+        #version 300 es
+        in vec4 a_position;
+        in vec2 a_texcoord;
+        
+        uniform mat4 u_matrix;
+        
+        out vec2 v_texcoord;
+        
+        void main() {
+            gl_Position = u_matrix * a_position;
+            v_texcoord = a_texcoord;
+        }
+    </script>
+
+    <script id="fragment-shader-2d" type="x-shader/x-fragment">
+        #version 300 es
+        precision highp float;
+        
+        in vec2 v_texcoord;
+        
+        uniform sampler2D u_texture;
+        
+        out vec4 outColor;
+        
+        void main() {
+            // Muestra la textura cargada
+            outColor = texture(u_texture, v_texcoord);
+        }
+    </script-->
+
+    <script>
+        var vs3dsrc = `#version 300 es
+            layout(location=0) in vec4 a_position;
+            layout(location=1) in vec3 a_normal; // No se usa pero es buena práctica para 3D
+            layout(location=2) in vec2 a_texcoord; // Coordenadas de textura para el cubo
+            
+            uniform mat4 u_matrix;
+            
+            out vec2 v_texcoord;
+            
+            void main() {
+                gl_Position = u_matrix * a_position;
+                v_texcoord = a_texcoord;
+            }
+        `;
+        
+        var fs3dsrc = `#version 300 es
+            precision highp float;
+            
+            in vec2 v_texcoord;
+            
+            uniform sampler2D u_texture;
+            
+            out vec4 outColor;
+            
+            void main() {
+                // Un color simple para el cubo. Podrías usar texture(u_texture, v_texcoord);
+                // para una textura real.
+                outColor = vec4(v_texcoord.x, 0.5, v_texcoord.y, 1.0); 
+            }
+        `;
+
+        var vs2dsrc = ` #version 300 es
+            in vec4 a_position;
+            in vec2 a_texcoord;
+            
+            uniform mat4 u_matrix;
+            
+            out vec2 v_texcoord;
+            
+            void main() {
+                gl_Position = u_matrix * a_position;
+                v_texcoord = a_texcoord;
+            }
+        `;
+        
+        var fs2dsrc = `#version 300 es
+            precision highp float;
+            
+            in vec2 v_texcoord;
+            
+            uniform sampler2D u_texture;
+            
+            out vec4 outColor;
+            
+            void main() {
+                // Muestra la textura cargada
+                outColor = texture(u_texture, v_texcoord);
+            }
+        `;
+
+        // --- ⚙️ Funciones de Utilidad (Simplificadas) ---
+
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            return shader;
+        }
+
+        function createProgram(gl, vsSource, fsSource) {
+            const vertexShader = createShader(gl, gl.VERTEX_SHADER, vsSource);
+            const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+            const program = gl.createProgram();
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+            return program;
+        }
+
+        // Simulación de una librería de matrices (para simplificar)
+        const m4 = {
+            perspective(fieldOfViewYInRadians, aspect, zNear, zFar) {
+                // Implementación simplificada de mat4.perspective
+                const f = 1.0 / Math.tan(fieldOfViewYInRadians / 2);
+                const rangeInv = 1.0 / (zNear - zFar);
+                return [
+                    f / aspect, 0, 0, 0,
+                    0, f, 0, 0,
+                    0, 0, (zNear + zFar) * rangeInv, -1,
+                    0, 0, zNear * zFar * rangeInv * 2, 0,
+                ];
+            },
+            
+            ortho(left, right, bottom, top, near, far) {
+                // Implementación simplificada de mat4.ortho
+                const lr = 1 / (left - right);
+                const bt = 1 / (bottom - top);
+                const nf = 1 / (near - far);
+                return [
+                    -2 * lr, 0, 0, 0,
+                    0, -2 * bt, 0, 0,
+                    0, 0, 2 * nf, 0,
+                    (left + right) * lr, (top + bottom) * bt, (far + near) * nf, 1,
+                ];
+            },
+
+            identity() { return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]; },
+            multiply(a, b) {
+                // Simplificación: Asume que las matrices son 4x4
+                const c = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+                for (let i = 0; i < 4; i++) {
+                    for (let j = 0; j < 4; j++) {
+                        c[i * 4 + j] = a[i * 4 + 0] * b[0 * 4 + j] +
+                                       a[i * 4 + 1] * b[1 * 4 + j] +
+                                       a[i * 4 + 2] * b[2 * 4 + j] +
+                                       a[i * 4 + 3] * b[3 * 4 + j];
+                    }
+                }
+                return c;
+            },
+            translate(m, x, y, z) {
+                const translationMatrix = m4.identity();
+                translationMatrix[12] = x;
+                translationMatrix[13] = y;
+                translationMatrix[14] = z;
+                return m4.multiply(m, translationMatrix);
+            },
+            xRotation(m, angleInRadians) {
+                const c = Math.cos(angleInRadians);
+                const s = Math.sin(angleInRadians);
+                const rotationMatrix = [1, 0, 0, 0, 0, c, s, 0, 0, -s, c, 0, 0, 0, 0, 1];
+                return m4.multiply(m, rotationMatrix);
+            },
+            yRotation(m, angleInRadians) {
+                const c = Math.cos(angleInRadians);
+                const s = Math.sin(angleInRadians);
+                const rotationMatrix = [c, 0, -s, 0, 0, 1, 0, 0, s, 0, c, 0, 0, 0, 0, 1];
+                return m4.multiply(m, rotationMatrix);
+            },
+            zRotation(m, angleInRadians) {
+                const c = Math.cos(angleInRadians);
+                const s = Math.sin(angleInRadians);
+                const rotationMatrix = [c, s, 0, 0, -s, c, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+                return m4.multiply(m, rotationMatrix);
+            },
+        };
+
+        // --- 🚀 Lógica Principal de WebGL ---
+
+        function main() {
+            const canvas = document.getElementById('gl-canvas');
+            const gl = canvas.getContext('webgl2');
+
+            if (!gl) {
+                alert("Tu navegador no soporta WebGL2.");
+                return;
+            }
+
+            // --- A. Preparación de Programas y Geometría ---
+
+            // 1. Programa 3D (Cubo)
+            const vs3d = vs3dsrc; //document.getElementById('vertex-shader-3d').textContent;
+            const fs3d = fs3dsrc; //document.getElementById('fragment-shader-3d').textContent;
+            const program3D = createProgram(gl, vs3d, fs3d);
+            const loc3D = {
+                position: gl.getAttribLocation(program3D, 'a_position'),
+                texcoord: gl.getAttribLocation(program3D, 'a_texcoord'),
+                matrix: gl.getUniformLocation(program3D, 'u_matrix'),
+                texture: gl.getUniformLocation(program3D, 'u_texture'),
+            };
+
+            // 2. Programa 2D (Overlay Ortogonal)
+            const vs2d = vs2dsrc; //document.getElementById('vertex-shader-2d').textContent;
+            const fs2d = fs2dsrc; //document.getElementById('fragment-shader-2d').textContent;
+            const program2D = createProgram(gl, vs2d, fs2d);
+            const loc2D = {
+                position: gl.getAttribLocation(program2D, 'a_position'),
+                texcoord: gl.getAttribLocation(program2D, 'a_texcoord'),
+                matrix: gl.getUniformLocation(program2D, 'u_matrix'),
+                texture: gl.getUniformLocation(program2D, 'u_texture'),
+            };
+
+            // 3. Buffer de Cubo (3D)
+            const cubePositionBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, cubePositionBuffer);
+            setGeometryCube(gl);
+
+            const cubeTexcoordBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, cubeTexcoordBuffer);
+            setTexcoordsCube(gl);
+
+            // 4. Buffer de Plano 2D (Overlay)
+            const quadPositionBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, quadPositionBuffer);
+            setGeometryQuad(gl, 100, 100); // Plano de 100x100 píxeles
+
+            const quadTexcoordBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, quadTexcoordBuffer);
+            setTexcoordsQuad(gl);
+
+            // 5. Textura (Para el Overlay 2D)
+            const overlayTexture = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, overlayTexture);
+            // Crea una textura simple de 2x2 píxeles (rojo y blanco)
+            const data = new Uint8Array([
+                255, 0, 0, 255, // Rojo
+                255, 255, 255, 255, // Blanco
+                255, 255, 255, 255, // Blanco
+                0, 0, 255, 255, // Azul
+            ]);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 2, 2, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+            // --- B. Función de Dibujo (Loop) ---
+
+            requestAnimationFrame(drawScene);
+            
+            function drawScene(time) {
+                time *= 0.001;
+                
+                // 1. Configuración del Canvas y Viewport
+                resizeCanvasToDisplaySize(gl.canvas);
+                gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+                gl.clearColor(1.0, 0.2, 0.3, 1.0);
+                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+                // --- PASADA 1: RENDERIZADO 3D (CUBO) ---
+                
+                gl.enable(gl.DEPTH_TEST); // Esencial para 3D
+                gl.useProgram(program3D);
+
+                // 1.1. Configurar Proyección 3D (Perspectiva)
+                const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+                let matrix = m4.perspective(Math.PI * 0.25, aspect, 0.1, 100); // FOV 45 grados
+
+                // 1.2. Configurar Vista (Cámara)
+                matrix = m4.translate(matrix, 0, 0, -4); // Mover la "cámara" hacia atrás
+
+                // 1.3. Configurar Transformación del Objeto (Cubo)
+                matrix = m4.yRotation(matrix, time * 0.5); // Rotar en Y
+                matrix = m4.xRotation(matrix, time * 0.3); // Rotar en X
+
+                // 1.4. Enviar Matrices y Textura
+                gl.uniformMatrix4fv(loc3D.matrix, false, matrix);
+                gl.uniform1i(loc3D.texture, 0); // Usar unidad de textura 0 (aunque aquí no se usa realmente)
+
+                // 1.5. Configurar Atributos del Cubo
+                gl.bindBuffer(gl.ARRAY_BUFFER, cubePositionBuffer);
+                gl.vertexAttribPointer(loc3D.position, 3, gl.FLOAT, false, 0, 0);
+                gl.enableVertexAttribArray(loc3D.position);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, cubeTexcoordBuffer);
+                gl.vertexAttribPointer(loc3D.texcoord, 2, gl.FLOAT, false, 0, 0);
+                gl.enableVertexAttribArray(loc3D.texcoord);
+
+                // 1.6. Dibujar el Cubo
+                gl.drawArrays(gl.TRIANGLES, 0, 6 * 6);
+
+
+                // --- PASADA 2: RENDERIZADO 2D (OVERLAY ORTOGONAL) ---
+                
+                gl.disable(gl.DEPTH_TEST); // IMPORTANTE: Deshabilita para que siempre esté al frente
+                gl.useProgram(program2D);
+
+                // 2.1. Configurar Proyección 2D (Ortogonal)
+                // Usamos las dimensiones del canvas para mapear píxeles 1:1. 
+                // El origen (0, 0) está en la esquina superior izquierda.
+                const orthoMatrix = m4.ortho(
+                    0, gl.canvas.width,    // left, right
+                    gl.canvas.height, 0,   // bottom, top (invertido para origen arriba)
+                    -1, 1                  // near, far
+                );
+
+                // 2.2. Configurar Transformación del Objeto (Plano 2D)
+                // Queremos situarlo en la esquina superior derecha. 
+                // El plano 2D es de 100x100.
+                const xPos = gl.canvas.width - 100; // Posición X: Ancho total - Ancho del plano
+                const yPos = 0;                     // Posición Y: Cero (arriba)
+                
+                let quadMatrix = m4.identity();
+                quadMatrix = m4.translate(quadMatrix, xPos, yPos, 0);
+                
+                // La matriz final es Proyección * Transformación
+                const finalQuadMatrix = m4.multiply(orthoMatrix, quadMatrix);
+                
+                // 2.3. Enviar Matrices y Textura
+                gl.uniformMatrix4fv(loc2D.matrix, false, finalQuadMatrix);
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, overlayTexture);
+                gl.uniform1i(loc2D.texture, 0);
+
+                // 2.4. Configurar Atributos del Plano 2D
+                gl.bindBuffer(gl.ARRAY_BUFFER, quadPositionBuffer);
+                gl.vertexAttribPointer(loc2D.position, 2, gl.FLOAT, false, 0, 0); // 2 componentes (x, y)
+                gl.enableVertexAttribArray(loc2D.position);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, quadTexcoordBuffer);
+                gl.vertexAttribPointer(loc2D.texcoord, 2, gl.FLOAT, false, 0, 0);
+                gl.enableVertexAttribArray(loc2D.texcoord);
+
+                // 2.5. Dibujar el Plano 2D
+                gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+                requestAnimationFrame(drawScene);
+            }
+        }
+
+        // --- C. Geometría y Ayudantes ---
+
+        function setGeometryCube(gl) {
+            // Coordenadas del cubo (36 vértices = 12 triángulos = 6 caras)
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+                // frente
+                -1, -1,  1, 1, -1,  1, -1,  1,  1,
+                -1,  1,  1, 1, -1,  1,  1,  1,  1,
+                // espalda
+                -1, -1, -1, -1,  1, -1,  1, -1, -1,
+                -1,  1, -1,  1,  1, -1,  1, -1, -1,
+                // arriba
+                -1,  1, -1, -1,  1,  1,  1,  1, -1,
+                -1,  1,  1,  1,  1,  1,  1,  1, -1,
+                // abajo
+                -1, -1, -1,  1, -1, -1, -1, -1,  1,
+                -1, -1,  1,  1, -1, -1,  1, -1,  1,
+                // derecha
+                1, -1, -1, 1,  1, -1, 1, -1,  1,
+                1,  1, -1, 1,  1,  1, 1, -1,  1,
+                // izquierda
+                -1, -1, -1, -1, -1,  1, -1,  1, -1,
+                -1,  1, -1, -1, -1,  1, -1,  1,  1,
+            ]), gl.STATIC_DRAW);
+        }
+        
+        function setTexcoordsCube(gl) {
+             // Coordenadas de textura (se repiten para cada cara)
+            const coords = [
+                0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1, // frente
+                0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0, // espalda
+                0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0, // arriba
+                0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1, // abajo
+                0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, // derecha
+                0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, // izquierda
+            ];
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(coords.flat()), gl.STATIC_DRAW);
+        }
+        
+        function setGeometryQuad(gl, width, height) {
+            // Crea un plano 2D de 'width' x 'height' que comienza en (0, 0)
+            const x1 = 0;
+            const x2 = width;
+            const y1 = 0;
+            const y2 = height;
+            
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+                x1, y1,
+                x2, y1,
+                x1, y2,
+                x1, y2,
+                x2, y1,
+                x2, y2,
+            ]), gl.STATIC_DRAW);
+        }
+
+        function setTexcoordsQuad(gl) {
+            // Coordenadas de textura para mapear la imagen completa al quad
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+                0, 0,
+                1, 0,
+                0, 1,
+                0, 1,
+                1, 0,
+                1, 1,
+            ]), gl.STATIC_DRAW);
+        }
+
+        function resizeCanvasToDisplaySize(canvas) {
+            const displayWidth = canvas.clientWidth;
+            const displayHeight = canvas.clientHeight;
+            const needResize = canvas.width !== displayWidth || canvas.height !== displayHeight;
+            if (needResize) {
+                canvas.width = displayWidth;
+                canvas.height = displayHeight;
+            }
+            return needResize;
+        }
+
+        main();
+    </script>
+</body>
+</html>

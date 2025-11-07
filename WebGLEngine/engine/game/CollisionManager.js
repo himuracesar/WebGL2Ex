@@ -54,6 +54,13 @@ class CollisionManager {
         this.relations.push(rel);
     }
 
+    /**
+     * Check collisions between groups according to relations.
+     * Now the only technique supported is with spheres (sphere colliders or boundings).
+     * If there is checkCollisions running the is not possible run again so break the checking.
+     * When the collision manager detect a collision it send a message to the objects and each object must process the 
+     * collision properly. And is not possible that an object is in more than one collision at the same time.
+     */
     async checkCollisions() {
         //debugger;
         if(this.running)

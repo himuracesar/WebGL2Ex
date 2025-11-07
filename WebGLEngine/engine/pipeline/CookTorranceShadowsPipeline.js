@@ -1,9 +1,9 @@
 /**
- * Cook Torrance shading - PBR
+ * Cook Torrance shading + shadow mapping
  * @author César Himura
  * @version 1.0
  */
-class CookTorrancePipeline extends Pipeline {
+class CookTorranceShadowsPipeline extends Pipeline {
 
     constructor(gl){
         var vertexShaderSrc = `#version 300 es
@@ -17,10 +17,13 @@ class CookTorrancePipeline extends Pipeline {
             uniform mat4 u_mProj;
             uniform mat4 u_mView;
             uniform mat4 u_mModel;
+            uniform mat4 u_mLightView;
+            uniform mat4 u_mLightProjection;
 
             out vec3 o_positionWV;
             out vec3 o_normalWV;
             out vec2 o_texcoord;
+            out vec4 o_posShadow;
 
             void main(){
                 gl_Position = u_mProj * u_mView * u_mModel * vec4(in_position, 1.0);
@@ -29,6 +32,7 @@ class CookTorrancePipeline extends Pipeline {
                 //o_normalWV = in_normal;
                 o_normalWV = (u_mView * u_mModel * vec4(in_normal, 0.0)).xyz;
                 o_texcoord = in_texcoord;
+                o_posShadow = u_mLightProjection * u_mLightView * u_mModel * vec4(in_position, 1.0);
             }
         `;
         
@@ -39,6 +43,7 @@ class CookTorrancePipeline extends Pipeline {
             in vec3 o_positionWV;
             in vec3 o_normalWV;
             in vec2 o_texcoord;
+            in vec4 o_posShadow;
 
             struct Material 
             {
@@ -135,6 +140,7 @@ class CookTorrancePipeline extends Pipeline {
             };
 
             uniform sampler2D u_sampler0;
+            uniform sampler2D u_shadowMap;
 
             out vec4 color;
 
@@ -363,7 +369,17 @@ class CookTorrancePipeline extends Pipeline {
                 else
                     color = lighting.diffuse + lighting.specular + lighting.ambient;
 
-                //color = vec4(normalWV, 1.0);
+                vec3 shadowCoord = (o_posShadow.xyz / o_posShadow.w) / 2.0f + 0.5f;
+                //vec3 shadowCoord = vec3(o_posShadow.xyz);
+                vec4 rgbaDepth = texture(u_shadowMap, shadowCoord.xy);
+                float depth = rgbaDepth.r; // Retrieve the z-value from R
+                float visibility = (shadowCoord.z > depth + 0.005f) ? 0.7f : 1.0f;
+
+                color = vec4(color.rgb * visibility, color.a);
+                //color = vec4(visibility, 0.0f, 0.0f, color.a);
+                //color = texture(u_shadowMap, vec2(o_texcoord.x, o_texcoord.y));
+                //color = rgbaDepth;
+                //color = vec4(shadowCoord.z, 0.0f, 0.0f, 1.0f);
             }
         `;
     
@@ -390,12 +406,18 @@ class CookTorrancePipeline extends Pipeline {
         var u_mModel = gl.getUniformLocation(this.getProgram(), "u_mModel");
         var u_camera_position = gl.getUniformLocation(this.getProgram(), "u_camera_position");
         var u_sampler0 = gl.getUniformLocation(this.getProgram(), "u_sampler0");
+        var u_shadowMap = gl.getUniformLocation(this.getProgram(), "u_shadowMap");
+        var u_mLightView = gl.getUniformLocation(this.getProgram(), "u_mLightView");
+        var u_mLightProjection = gl.getUniformLocation(this.getProgram(), "u_mLightProjection");
 
         uniforms.set("u_mProj", u_mProj);
         uniforms.set("u_mView", u_mView);
         uniforms.set("u_mModel", u_mModel);
         uniforms.set("u_sampler0", u_sampler0);
         uniforms.set("u_camera_position", u_camera_position);
+        uniforms.set("u_shadowMap", u_shadowMap);
+        uniforms.set("u_mLightView", u_mLightView);
+        uniforms.set("u_mLightProjection", u_mLightProjection);
 
         this.uniforms = uniforms;
     }
@@ -455,5 +477,19 @@ class CookTorrancePipeline extends Pipeline {
      */
     setLight(light, uniformvar){
         gl.bindBufferBase(gl.UNIFORM_BUFFER, light.getBindingPoint(), light.getBuffer(this, uniformvar));
+    }
+
+    setUniformSampler(name, value) {
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, value);
+        gl.uniform1i(this.getUniformLocation(name), 1);
+    }
+
+    setUniformVector4(name, value){
+        gl.uniform4fv(this.getUniformLocation(name), value);
+    }
+
+    setUniformMatrix4x4(uniformName, matrix){
+        gl.uniformMatrix4fv(this.getUniformLocation(uniformName), false, matrix);
     }
 }
