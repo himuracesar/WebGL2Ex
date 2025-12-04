@@ -1,5 +1,8 @@
 /**
+ * It's possible draw in a render target for techniques with multiple passes
  * 
+ * @author César Himura
+ * @version 1.0
  */
 class RenderTarget {
     constructor(width, height){
@@ -31,6 +34,10 @@ class RenderTarget {
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.textures[0].getWebGLTexture(), 0);
         gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this.depthBuffer);
+
+        // Indicar a WebGL que no necesitamos una salida de color, solo profundidad
+        /*gl.drawBuffers([gl.NONE]);
+        gl.readBuffer(gl.NONE);*/
 
         // Check if FBO is configured correctly
         var e = gl.checkFramebufferStatus(gl.FRAMEBUFFER);

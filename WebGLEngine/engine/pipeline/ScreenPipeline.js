@@ -1,5 +1,5 @@
 /**
- * To draw textures in orthogrphics projection
+ * To draw textures in orthographics projection
  * @author César Himura
  * @version 1.0
  */

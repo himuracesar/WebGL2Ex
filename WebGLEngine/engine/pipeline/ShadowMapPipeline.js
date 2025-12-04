@@ -29,17 +29,17 @@ class ShadowMapPipeline extends Pipeline {
         `;
         
         var fragmentShaderSrc = `#version 300 es
-            precision mediump float;
-            //precision highp float;
+            //precision mediump float;
+            precision highp float;
 
             layout(location=0) out vec4 color;
 
-            in vec2 o_texcoord;
-            in vec3 o_normal;
+            //in vec2 o_texcoord;
+            //in vec3 o_normal;
 
             void main(){
-                
-                const vec4 bitShift = vec4(1.0, 256.0, 256.0 * 256.0, 256.0 * 256.0 * 256.0);
+                color = vec4(1.0);
+                /*const vec4 bitShift = vec4(1.0, 256.0, 256.0 * 256.0, 256.0 * 256.0 * 256.0);
                 const vec4 bitMask = vec4(1.0/256.0, 1.0/256.0, 1.0/256.0, 0.0);
 
                 vec4 rgbaDepth = fract(gl_FragCoord.z * bitShift); // Calculate the value stored into each byte
@@ -49,7 +49,7 @@ class ShadowMapPipeline extends Pipeline {
                 //color = vec4(1.0f, 0.0f, 0.0f, 1.0f);
                 //color = rgbaDepth;
                 //color = vec4(gl_FragCoord.z, gl_FragCoord.z, gl_FragCoord.z, 1.0f);
-                color = vec4(gl_FragCoord.z, 0.0, 0.0, 1.0);
+                color = vec4(gl_FragCoord.z, 0.0, 0.0, 1.0);*/
             }
         `;
     

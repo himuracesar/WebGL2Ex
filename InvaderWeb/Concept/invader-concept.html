@@ -385,21 +385,119 @@
 
             cm.addCollisionRelation("player", "enemies");
 
-            //------------- Screen ---------------
-            depthScreen = new Screen(150, 100);
+            //------------- Screen (only for debug) ---------------
+            depthScreen = new Screen(300, 250);//new Screen(150, 100);
             depthScreen.setPosition([10.0, 10.0, 0.0]);
 
             //------------- Game -----------------
             
-            rtShadows = new RenderTarget(canvas.width, canvas.height);
-            //rtShadows = new RenderTarget(400, 400);
+            rtShadows = new RenderTarget(2048, 2048);
 
-            lightShadow = {};
-            lightShadow.position = [0.0, 100.0, -150.0, 1.0];
-            lightShadow.view = m4.inverse(m4.lookAt([lightShadow.position[0], lightShadow.position[1], lightShadow.position[2]], player.getPosition(), [0.0, 1.0, 0.0]));
-            lightShadow.perspective = m4.perspective(webGLengine.degreeToRadian(45.0), rtShadows.getWidth() / rtShadows.getHeight(), 0.1, 1000.0);
+            buildShadowTransform("directional");
             
             updateAndRender();
+        }
+
+        function buildShadowTransform(lightType){
+            lightShadow = {};
+            //lightShadow.position = [-20.0, 20.0, -1.0, 1.0];
+            //lightShadow.position = [-100.0, 150.0, -100.0, 1.0];
+            lightShadow.target = [0.0, 0.0, 0.0];
+            //lightShadow.view = m4.inverse(m4.lookAt([lightShadow.position[0], lightShadow.position[1], lightShadow.position[2]], lightShadow.target, [0.0, 1.0, 0.0]));
+
+            if(lightType == "directional"){
+                // 1. Bounds de la escena (asumiendo centrada en origen)
+                /*const sceneWidth = 100;
+                const sceneDepth = 100;
+                const sceneHeight = 100;
+                const halfW = sceneWidth / 2;
+                const halfD = sceneDepth / 2;
+                
+                const bounds = {
+                    minX: -halfW, maxX: halfW,
+                    minY: 0,      maxY: sceneHeight,
+                    minZ: -halfD, maxZ: halfD
+                };
+
+                const lightDirection = [0.5, -1.0, 0.3];
+                
+                // 2. Normalizar dirección de luz
+                const len = Math.sqrt(
+                    lightDirection[0] ** 2 + 
+                    lightDirection[1] ** 2 + 
+                    lightDirection[2] ** 2
+                );
+                const normDir = [
+                    lightDirection[0] / len,
+                    lightDirection[1] / len,
+                    lightDirection[2] / len
+                ];
+                
+                // 3. Calcular distancia (diagonal de la escena)
+                const diagonal = Math.sqrt(
+                    sceneWidth ** 2 + 
+                    sceneHeight ** 2 + 
+                    sceneDepth ** 2
+                );
+                
+                // 4. Posición de luz (en dirección opuesta)
+                const lightPos = [
+                    -normDir[0] * diagonal,
+                    -normDir[1] * diagonal,
+                    -normDir[2] * diagonal
+                ];*/
+
+
+                var radio = 55.0;
+                //lightShadow.position = [-1000.0, 800.0, -1000.0, 1.0];
+                lightShadow.position = [-800.0, 1200.0, -1200.0]; //m4.scaleVector([0.5, 0.5, -0.5], -1.0 * radio);
+                lightShadow.view = m4.inverse(m4.lookAt([lightShadow.position[0], lightShadow.position[1], lightShadow.position[2]], lightShadow.target, [0.0, 1.0, 0.0]));
+                //lightShadow.view = m4.inverse(m4.lookAt(lightPos, lightShadow.target, [0.0, 1.0, 0.0]));
+                
+                // Transform bounding sphere to light space.
+                var sphereCenter = m4.transformPoint(lightShadow.view, [lightShadow.target[0], lightShadow.target[1], lightShadow.target[2], 1.0]);
+                //var sphereCenter = m4.transformVector(lightShadow.view, [lightShadow.target[0], lightShadow.target[1], lightShadow.target[2], 1.0]);
+                //var sphereCenter = [lightShadow.target[0], lightShadow.target[1], lightShadow.target[2]];
+                //var sphereCenter = [0.0, 0.0, 0.0];
+                
+                // Ortho frustum in light space encloses scene.
+                var l = sphereCenter[0] - radio;
+                var b = sphereCenter[1] - radio;
+                //var b = 0.0;
+                //var n = sphereCenter[2] - radio;
+                var n = 0.1;
+                var r = sphereCenter[0] + radio;
+                var t = sphereCenter[1] + radio;
+                //var f = sphereCenter[2] + radio;
+                var f = 50.0;
+
+                const frustumCorners = camera.getFrustumCorners();
+
+                // 3. Encontrar los límites (AABB) en espacio de luz
+                let minX = Infinity, maxX = -Infinity;
+                let minY = Infinity, maxY = -Infinity;
+                let minZ = Infinity, maxZ = -Infinity;
+                
+                for (const corner of frustumCorners) {
+                    const transformed = Array.from(m4.transformPoint(lightShadow.view, [corner[0], corner[1], corner[2], 1.0]));
+                    minX = Math.min(minX, transformed[0]);
+                    maxX = Math.max(maxX, transformed[0]);
+                    minY = Math.min(minY, transformed[1]);
+                    maxY = Math.max(maxY, transformed[1]);
+                    minZ = Math.min(minZ, transformed[2]);
+                    maxZ = Math.max(maxZ, transformed[2]);
+                }
+                
+                //lightShadow.perspective = m4.orthographic(l, r, b, t, n, f);
+                //lightShadow.perspective = m4.orthographic(minX, maxX, minY, maxY, minZ, maxZ);
+                const LIGHT_FRUSTUM_SIZE = 500.0;
+                lightShadow.perspective = m4.orthographic(-LIGHT_FRUSTUM_SIZE, LIGHT_FRUSTUM_SIZE, -LIGHT_FRUSTUM_SIZE, LIGHT_FRUSTUM_SIZE, 1.0, 2000.0);
+                //lightShadow.perspective = m4.orthographic(-1.0, 1.0, -1.0, 1.0, 1.0, 200.0);
+            } else {
+                lightShadow.position = [-800.0, 1200.0, -1200.0];
+                lightShadow.view = m4.inverse(m4.lookAt([lightShadow.position[0], lightShadow.position[1], lightShadow.position[2]], lightShadow.target, [0.0, 1.0, 0.0]));
+                lightShadow.perspective = m4.perspective(webGLengine.degreeToRadian(45.0), rtShadows.getWidth() / rtShadows.getHeight(), 1.0, 2000.0);
+            }
         }
 
         function update(){
@@ -426,10 +524,10 @@
             gl.clearColor(0.0, 0.0, 0.0, 1.0);
             //gl.clearDepth(1.0);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            //gl.clear(gl.DEPTH_BUFFER_BIT);
 
-            /*gl.enable(gl.DEPTH_TEST);
-            gl.enable(gl.CULL_FACE);
-            gl.cullFace(gl.BACK);*/
+            gl.enable(gl.DEPTH_TEST);
+            gl.cullFace(gl.FRONT); // Culling frontal para reducir peter panning
 
             shadowMapPipeline.use();
 
@@ -437,7 +535,10 @@
             shadowMapPipeline.setMatrix("u_mView", lightShadow.view);
 
             player.render(shadowMapPipeline);
+            cube.render(shadowMapPipeline);
+            floor.render(shadowMapPipeline);
 
+            shadowMapPipeline.unuse();
             rtShadows.unbind();
 
             gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
@@ -445,10 +546,10 @@
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
             gl.enable(gl.DEPTH_TEST);
-            gl.enable(gl.CULL_FACE);
+            //gl.enable(gl.CULL_FACE);
 
             //gl.depthFunc(gl.LEQUAL);
-            gl.cullFace(gl.BACK);
+            //gl.cullFace(gl.BACK);
 
             console.log("Render");
 
@@ -487,10 +588,6 @@
 
             enemy_t1.render(cookTorrancePipeline);
 
-            /*screen.rotateX(webGLengine.degreeToRadian(90.0));
-            screen.setPosition([0.0, 250.0, -250.0]);
-            screen.render(cookTorrancePipeline);*/
-
             cookTorrancePipeline.unuse();
 
             ctShadowsPipeline.use();
@@ -507,7 +604,7 @@
 
             ctShadowsPipeline.unuse();
 
-            // --- PASADA 2: RENDERIZADO 2D (OVERLAY ORTOGONAL) ---
+            // RENDERIZADO 2D (OVERLAY ORTOGONAL) ---
             depthScreen.render(screenPipeline);
         }
 

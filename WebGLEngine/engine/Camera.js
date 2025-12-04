@@ -180,4 +180,23 @@ class Camera {
     pitch(units){
         this.pitchAngle += units;
     }
+
+    getFrustumCorners() {
+        // Calcular las 8 esquinas del frustum de la cámara
+        // en coordenadas del mundo
+        const invViewProj = this.getViewMatrix();
+        
+        const corners = [];
+        for (let x of [-1, 1]) {
+            for (let y of [-1, 1]) {
+                for (let z of [-1, 1]) {
+                    const corner = [x, y, z, 1];
+                    const worldCorner = m4.transformVector(invViewProj, corner);
+                    corners.push(Array.from(m4.scaleVector([worldCorner[0], worldCorner[1], worldCorner[2]], 1 / worldCorner[2])));
+                }
+            }
+        }
+        
+        return corners;
+    }
 }

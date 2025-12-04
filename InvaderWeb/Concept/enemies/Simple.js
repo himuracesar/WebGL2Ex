@@ -53,7 +53,7 @@ class Simple extends Actor{
         }
         
         this.point();
-        this.shot();
+        //this.shot();
     }
 
     /**

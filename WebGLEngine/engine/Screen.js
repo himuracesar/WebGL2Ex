@@ -76,6 +76,8 @@ class Screen {
         gl.drawArrays(gl.TRIANGLES, 0, 6);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+        pipeline.unuse();
     }
 
     /**

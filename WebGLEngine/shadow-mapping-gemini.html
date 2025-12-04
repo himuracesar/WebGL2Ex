@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>WebGL2 Shadow Mapping Demo - Esfera y Cubo</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #1a1a1a; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <canvas id="gl-canvas"></canvas>
+    <script>
+        // =====================================================================
+        // CONFIGURACIÓN DE ESCENA Y DIMENSIONES
+        // =====================================================================
+        const CANVAS = document.getElementById('gl-canvas');
+        const GL = CANVAS.getContext('webgl2');
+
+        if (!GL) {
+            alert('Su navegador no soporta WebGL2.');
+        }
+
+        const SHADOW_MAP_SIZE = 2048; // Resolución del mapa de sombras
+        
+        // Dimensiones de la escena (unidades de mundo)
+        const GRID_SIZE = 200.0;
+        const SPHERE_RADIUS = 5.0;
+        const CUBE_SIZE = 5.0;
+
+        // Posiciones base (sobre Y=0)
+        const SPHERE_POS = [-5.0, SPHERE_RADIUS, 0.0];
+        const CUBE_POS = [5.0, CUBE_SIZE / 2.0, 0.0];
+
+        // Dirección de la luz (simulando un sol desde arriba/derecha)
+        const LIGHT_DIRECTION = normalize([-0.5, -1.0, -0.5]);
+        const LIGHT_POS = [20.0, 30.0, 20.0]; // Posición desde donde se calcula la matriz de vista de luz
+
+        // Parámetros de la cámara
+        const CAMERA_POS = [0.0, 15.0, 50.0];
+        const CAMERA_TARGET = [0.0, 0.0, 0.0];
+        const FOV = 45 * Math.PI / 180;
+        const NEAR = 0.1;
+        const FAR = 100.0;
+
+        // =====================================================================
+        // SHADERS GLSL
+        // =====================================================================
+
+        // Shader de Vértices para el Paso de Profundidad (Light View)
+        const SHADOW_VS_SOURCE = `#version 300 es
+            layout(location = 0) in vec3 a_position;
+            uniform mat4 u_lightMatrix;
+            void main() {
+                gl_Position = u_lightMatrix * vec4(a_position, 1.0);
+            }
+        `;
+
+        // Shader de Fragmentos para el Paso de Profundidad (solo escribe profundidad)
+        const SHADOW_FS_SOURCE = `#version 300 es
+            precision highp float;
+            out vec4 fragColor;
+            void main() {
+                // No necesitamos escribir color, solo la profundidad en el FBO
+                // El FBO de profundidad maneja esto automáticamente.
+            }
+        `;
+
+        // Shader de Vértices para el Renderizado de la Escena (Main View)
+        const SCENE_VS_SOURCE = `#version 300 es
+            layout(location = 0) in vec3 a_position;
+            layout(location = 1) in vec3 a_normal;
+            
+            uniform mat4 u_model;
+            uniform mat4 u_view;
+            uniform mat4 u_projection;
+            uniform mat4 u_lightViewProjection;
+
+            out vec3 v_normal;
+            out vec3 v_worldPos;
+            out vec4 v_lightSpacePos;
+
+            void main() {
+                v_worldPos = (u_model * vec4(a_position, 1.0)).xyz;
+                v_normal = mat3(u_model) * a_normal; // Transformación de normales
+                v_lightSpacePos = u_lightViewProjection * vec4(v_worldPos, 1.0);
+                gl_Position = u_projection * u_view * vec4(v_worldPos, 1.0);
+            }
+        `;
+
+        // Shader de Fragmentos para el Renderizado de la Escena (Main View con Shadow Mapping)
+        const SCENE_FS_SOURCE = `#version 300 es
+            precision highp float;
+
+            in vec3 v_normal;
+            in vec3 v_worldPos;
+            in vec4 v_lightSpacePos;
+            
+            uniform sampler2D u_shadowMap;
+            uniform vec3 u_lightDir;
+            uniform vec3 u_viewPos;
+            uniform vec3 u_objectColor;
+            
+            out vec4 fragColor;
+
+            // Función de muestreo de profundidad (comparación)
+            float calculateShadow() {
+                // Conversión de coordenadas NDC de la luz a coordenadas de textura [0, 1]
+                vec3 projCoords = v_lightSpacePos.xyz / v_lightSpacePos.w;
+                projCoords = projCoords * 0.5 + 0.5; // Mapeo a [0, 1]
+
+                // Si está fuera del frustum de la luz, no hay sombra (o está completamente sombreado si se desea)
+                if (projCoords.z > 1.0) {
+                    return 0.0; // Fuera del rango de sombra
+                }
+
+                // Profundidad de este fragmento desde la vista de la luz
+                float currentDepth = projCoords.z;
+
+                // Profundidad más cercana almacenada en el mapa de sombras (profundidad de la superficie más cercana)
+                float closestDepth = texture(u_shadowMap, projCoords.xy).r;
+
+                // Aplicar Shadow Bias para evitar "Shadow Acne" (artefactos de autosombra)
+                float bias = 0.002;
+                if (closestDepth < currentDepth - bias) {
+                    return 1.0; // Sombreado
+                }
+
+                return 0.0; // Iluminado
+            }
+
+            void main() {
+                vec3 normal = normalize(v_normal);
+                vec3 lightDir = normalize(-u_lightDir);
+
+                // --- ILUMINACIÓN AMBIENTE ---
+                vec3 ambient = 0.1 * u_objectColor;
+
+                // --- ILUMINACIÓN DIFUSA ---
+                float diff = max(dot(normal, lightDir), 0.0);
+                vec3 diffuse = diff * u_objectColor;
+
+                // --- ILUMINACIÓN ESPECULAR (muy simple) ---
+                vec3 viewDir = normalize(u_viewPos - v_worldPos);
+                vec3 reflectDir = reflect(-lightDir, normal);
+                float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
+                vec3 specular = spec * vec3(0.5); // Color especular blanco/gris
+
+                // --- CÁLCULO DE SOMBRAS ---
+                float shadow = calculateShadow(); 
+                
+                // Mezcla de colores (sombra = 1.0 es sombreado, 0.0 es iluminado)
+                // Usamos 0.5 para atenuar la sombra y que no sea completamente negra
+                vec3 finalColor = ambient + (1.0 - shadow * 0.5) * (diffuse + specular);
+                
+                fragColor = vec4(finalColor, 1.0);
+            }
+        `;
+
+        // =====================================================================
+        // UTILIDADES Y MATEMÁTICAS (Implementación mínima de vec3 y mat4)
+        // Usando matrices en Column-Major order (como en GLSL/WebGL)
+        // =====================================================================
+
+        /** Normaliza un vector 3D */
+        function normalize(v) {
+            const length = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+            return [v[0] / length, v[1] / length, v[2] / length];
+        }
+
+        /** Producto cruzado (cross product) */
+        function cross(a, b) {
+            return [
+                a[1] * b[2] - a[2] * b[1],
+                a[2] * b[0] - a[0] * b[2],
+                a[0] * b[1] - a[1] * b[0]
+            ];
+        }
+
+        /** Producto punto (dot product) */
+        function dot(a, b) {
+            return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+        }
+
+        /** Multiplicación de matriz 4x4 */
+        function multiply(a, b) {
+            const c = new Array(16).fill(0);
+            for (let i = 0; i < 4; i++) {
+                for (let j = 0; j < 4; j++) {
+                    for (let k = 0; k < 4; k++) {
+                        c[i * 4 + j] += a[k * 4 + j] * b[i * 4 + k];
+                    }
+                }
+            }
+            return c;
+        }
+
+        /** Matriz de Identidad */
+        function identity() {
+            return [
+                1, 0, 0, 0,
+                0, 1, 0, 0,
+                0, 0, 1, 0,
+                0, 0, 0, 1
+            ];
+        }
+
+        /** Matriz de Traslación */
+        function translate(m, v) {
+            const x = v[0], y = v[1], z = v[2];
+            let m00 = m[0], m01 = m[1], m02 = m[2], m03 = m[3];
+            let m10 = m[4], m11 = m[5], m12 = m[6], m13 = m[7];
+            let m20 = m[8], m21 = m[9], m22 = m[10], m23 = m[11];
+            let m30 = m[12], m31 = m[13], m32 = m[14], m33 = m[15];
+            m[12] = m00 * x + m10 * y + m20 * z + m30;
+            m[13] = m01 * x + m11 * y + m21 * z + m31;
+            m[14] = m02 * x + m12 * y + m22 * z + m32;
+            m[15] = m03 * x + m13 * y + m23 * z + m33;
+            return m;
+        }
+
+        /** Matriz de Perspectiva (Projection) */
+        function perspective(fovy, aspect, near, far) {
+            const f = 1.0 / Math.tan(fovy / 2);
+            const rangeInv = 1.0 / (near - far);
+            return [
+                f / aspect, 0, 0, 0,
+                0, f, 0, 0,
+                0, 0, (near + far) * rangeInv, -1,
+                0, 0, 2 * near * far * rangeInv, 0
+            ];
+        }
+
+        /** Matriz LookAt (View) */
+        function lookAt(eye, center, up) {
+            const z = normalize([eye[0] - center[0], eye[1] - center[1], eye[2] - center[2]]);
+            const x = normalize(cross(up, z));
+            const y = cross(z, x);
+
+            return [
+                x[0], y[0], z[0], 0,
+                x[1], y[1], z[1], 0,
+                x[2], y[2], z[2], 0,
+                -(x[0] * eye[0] + x[1] * eye[1] + x[2] * eye[2]),
+                -(y[0] * eye[0] + y[1] * eye[1] + y[2] * eye[2]),
+                -(z[0] * eye[0] + z[1] * eye[1] + z[2] * eye[2]),
+                1
+            ];
+        }
+
+        /** Matriz Ortográfica (para la luz direccional) */
+        function ortho(left, right, bottom, top, near, far) {
+            const rl = 1 / (right - left);
+            const tb = 1 / (top - bottom);
+            const fn = 1 / (far - near);
+            
+            return [
+                2 * rl, 0, 0, 0,
+                0, 2 * tb, 0, 0,
+                0, 0, -2 * fn, 0,
+                -(left + right) * rl, -(top + bottom) * tb, -(far + near) * fn, 1
+            ];
+        }
+
+        // =====================================================================
+        // FUNCIONES DE COMPILACIÓN Y ENLACE DE SHADERS
+        // =====================================================================
+
+        function compileShader(gl, source, type) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error('ERROR compiling shader:', gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        function createProgram(gl, vsSource, fsSource) {
+            const vertexShader = compileShader(gl, vsSource, gl.VERTEX_SHADER);
+            const fragmentShader = compileShader(gl, fsSource, gl.FRAGMENT_SHADER);
+
+            const program = gl.createProgram();
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                console.error('ERROR linking program:', gl.getProgramInfoLog(program));
+                gl.deleteProgram(program);
+                return null;
+            }
+            return program;
+        }
+
+        // =====================================================================
+        // GENERACIÓN DE GEOMETRÍA
+        // =====================================================================
+
+        // Genera vértices y normales de un cubo
+        function createCubeGeometry(size) {
+            const h = size / 2.0;
+            // Posiciones (6 caras, 4 vértices por cara)
+            const positions = new Float32Array([
+                // Cara frontal
+                -h, -h, h,  h, -h, h,  h, h, h,  -h, h, h,
+                // Cara trasera
+                -h, -h, -h, -h, h, -h,  h, h, -h,  h, -h, -h,
+                // Cara superior
+                -h, h, h,  h, h, h,  h, h, -h,  -h, h, -h,
+                // Cara inferior
+                -h, -h, h,  -h, -h, -h,  h, -h, -h,  h, -h, h,
+                // Cara derecha
+                h, -h, h,  h, -h, -h,  h, h, -h,  h, h, h,
+                // Cara izquierda
+                -h, -h, h,  -h, h, h,  -h, h, -h,  -h, -h, -h,
+            ]);
+
+            // Normales
+            const normals = new Float32Array([
+                // Frontal (+Z)
+                0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1,
+                // Trasera (-Z)
+                0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1,
+                // Superior (+Y)
+                0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0,
+                // Inferior (-Y)
+                0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0,
+                // Derecha (+X)
+                1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,
+                // Izquierda (-X)
+                -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0,
+            ]);
+
+            // Índices (2 triángulos por cara)
+            const indices = new Uint16Array([
+                0, 1, 2, 0, 2, 3,       // Frontal
+                4, 5, 6, 4, 6, 7,       // Trasera
+                8, 9, 10, 8, 10, 11,    // Superior
+                12, 13, 14, 12, 14, 15, // Inferior
+                16, 17, 18, 16, 18, 19, // Derecha
+                20, 21, 22, 20, 22, 23, // Izquierda
+            ]);
+
+            return { positions, normals, indices };
+        }
+
+        // Genera vértices y normales de una esfera (aproximación, usando UV sphere)
+        function createSphereGeometry(radius, latSegments = 30, longSegments = 30) {
+            const positions = [];
+            const normals = [];
+            const indices = [];
+
+            for (let i = 0; i <= latSegments; i++) {
+                const latAngle = i * Math.PI / latSegments;
+                const sinLat = Math.sin(latAngle);
+                const cosLat = Math.cos(latAngle);
+
+                for (let j = 0; j <= longSegments; j++) {
+                    const longAngle = j * 2 * Math.PI / longSegments;
+                    const sinLong = Math.sin(longAngle);
+                    const cosLong = Math.cos(longAngle);
+
+                    const x = radius * cosLong * sinLat;
+                    const y = radius * cosLat;
+                    const z = radius * sinLong * sinLat;
+
+                    positions.push(x, y, z);
+                    // Las normales son simplemente el vector posición normalizado para una esfera
+                    normals.push(x / radius, y / radius, z / radius);
+
+                    if (i < latSegments && j < longSegments) {
+                        const first = i * (longSegments + 1) + j;
+                        const second = first + longSegments + 1;
+                        // Primer triángulo
+                        indices.push(first, second, first + 1);
+                        // Segundo triángulo
+                        indices.push(second, second + 1, first + 1);
+                    }
+                }
+            }
+
+            return { positions: new Float32Array(positions), normals: new Float32Array(normals), indices: new Uint16Array(indices) };
+        }
+        
+        // Genera vértices y normales de un plano (grid)
+        function createGridGeometry(size, segments = 2) {
+            const h = size / 2.0;
+            const step = size / segments;
+            const positions = [];
+            const normals = [];
+            const indices = [];
+            let v = 0;
+
+            for (let i = 0; i <= segments; i++) {
+                for (let j = 0; j <= segments; j++) {
+                    // Posición (en el plano XZ, Y=0)
+                    positions.push(-h + i * step, 0.0, -h + j * step);
+                    // Normal (apuntando hacia +Y)
+                    normals.push(0.0, 1.0, 0.0);
+
+                    if (i < segments && j < segments) {
+                        const a = v;
+                        const b = v + 1;
+                        const c = v + segments + 1;
+                        const d = v + segments + 2;
+
+                        // Dos triángulos por segmento de cuadrícula
+                        indices.push(a, d, c); // Triángulo 1
+                        indices.push(a, b, d); // Triángulo 2
+                    }
+                    v++;
+                }
+            }
+            return { positions: new Float32Array(positions), normals: new Float32Array(normals), indices: new Uint16Array(indices) };
+        }
+
+
+        // Función genérica para crear y enlazar VAO/VBOs
+        function createVAO(gl, geometry) {
+            const vao = gl.createVertexArray();
+            gl.bindVertexArray(vao);
+
+            // Buffer de Posiciones
+            const positionBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, geometry.positions, gl.STATIC_DRAW);
+            gl.enableVertexAttribArray(0); // location = 0
+            gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+
+            // Buffer de Normales
+            const normalBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, geometry.normals, gl.STATIC_DRAW);
+            gl.enableVertexAttribArray(1); // location = 1
+            gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
+
+            // Buffer de Índices
+            const indexBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, geometry.indices, gl.STATIC_DRAW);
+
+            gl.bindVertexArray(null);
+
+            return { vao, numElements: geometry.indices.length };
+        }
+
+        // =====================================================================
+        // CONFIGURACIÓN INICIAL DE WEBGL2
+        // =====================================================================
+
+        // Dimensionar el canvas al tamaño de la ventana
+        function resizeCanvas() {
+            CANVAS.width = window.innerWidth;
+            CANVAS.height = window.innerHeight;
+            GL.viewport(0, 0, CANVAS.width, CANVAS.height);
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Compilar programas
+        const shadowProgram = createProgram(GL, SHADOW_VS_SOURCE, SHADOW_FS_SOURCE);
+        const sceneProgram = createProgram(GL, SCENE_VS_SOURCE, SCENE_FS_SOURCE);
+
+        // Obtener ubicaciones de uniforms
+        const uniforms = {
+            shadow: {
+                lightMatrix: GL.getUniformLocation(shadowProgram, 'u_lightMatrix'),
+            },
+            scene: {
+                model: GL.getUniformLocation(sceneProgram, 'u_model'),
+                view: GL.getUniformLocation(sceneProgram, 'u_view'),
+                projection: GL.getUniformLocation(sceneProgram, 'u_projection'),
+                lightViewProjection: GL.getUniformLocation(sceneProgram, 'u_lightViewProjection'),
+                lightDir: GL.getUniformLocation(sceneProgram, 'u_lightDir'),
+                viewPos: GL.getUniformLocation(sceneProgram, 'u_viewPos'),
+                objectColor: GL.getUniformLocation(sceneProgram, 'u_objectColor'),
+                shadowMap: GL.getUniformLocation(sceneProgram, 'u_shadowMap'),
+            }
+        };
+
+        // Crear geometría y VAOs
+        const gridGeo = createGridGeometry(GRID_SIZE, 40);
+        const sphereGeo = createSphereGeometry(SPHERE_RADIUS);
+        const cubeGeo = createCubeGeometry(CUBE_SIZE);
+
+        const gridVAO = createVAO(GL, gridGeo);
+        const sphereVAO = createVAO(GL, sphereGeo);
+        const cubeVAO = createVAO(GL, cubeGeo);
+
+        // Model matrices
+        const gridModel = identity(); // El grid está centrado en (0, 0, 0)
+        
+        let sphereModel = identity();
+        sphereModel = translate(sphereModel, SPHERE_POS); // Base en (-5, 0, 0), centro en (-5, 5, 0)
+
+        let cubeModel = identity();
+        cubeModel = translate(cubeModel, CUBE_POS); // Base en (5, 0, 0), centro en (5, 2.5, 0)
+
+        // Arreglo de objetos para iterar
+        const renderObjects = [
+            { vao: gridVAO.vao, count: gridVAO.numElements, model: gridModel, color: [0.2, 0.5, 0.2] }, // Verde oscuro
+            { vao: sphereVAO.vao, count: sphereVAO.numElements, model: sphereModel, color: [0.9, 0.2, 0.2] }, // Rojo
+            { vao: cubeVAO.vao, count: cubeVAO.numElements, model: cubeModel, color: [0.2, 0.2, 0.9] }, // Azul
+        ];
+
+        // =====================================================================
+        // CONFIGURACIÓN DE SHADOW MAPPING (FBO y Textura)
+        // =====================================================================
+
+        // 1. Crear Textura de Profundidad (Shadow Map)
+        const shadowMap = GL.createTexture();
+        GL.bindTexture(GL.TEXTURE_2D, shadowMap);
+        GL.texImage2D(GL.TEXTURE_2D, 0, GL.DEPTH_COMPONENT16, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE, 0, GL.DEPTH_COMPONENT, GL.UNSIGNED_INT, null);
+
+        // Parámetros de la textura
+        GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MAG_FILTER, GL.NEAREST);
+        GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MIN_FILTER, GL.NEAREST);
+        GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_WRAP_S, GL.CLAMP_TO_EDGE);
+        GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_WRAP_T, GL.CLAMP_TO_EDGE);
+
+        // 2. Crear Framebuffer Object (FBO)
+        const shadowFBO = GL.createFramebuffer();
+        GL.bindFramebuffer(GL.FRAMEBUFFER, shadowFBO);
+
+        // Adjuntar la textura de profundidad al FBO
+        GL.framebufferTexture2D(GL.FRAMEBUFFER, GL.DEPTH_ATTACHMENT, GL.TEXTURE_2D, shadowMap, 0);
+
+        // Indicar a WebGL que no necesitamos una salida de color, solo profundidad
+        GL.drawBuffers([GL.NONE]);
+        GL.readBuffer(GL.NONE);
+
+        // Limpiar el FBO (verificar si está completo)
+        if (GL.checkFramebufferStatus(GL.FRAMEBUFFER) !== GL.FRAMEBUFFER_COMPLETE) {
+            console.error('Framebuffer no está completo!');
+        }
+
+        GL.bindFramebuffer(GL.FRAMEBUFFER, null);
+        GL.bindTexture(GL.TEXTURE_2D, null);
+
+        // =====================================================================
+        // CÁLCULO DE MATRICES DE LUZ
+        // =====================================================================
+
+        // Usamos una matriz ortográfica para simular una luz direccional (Sol)
+        const LIGHT_FRUSTUM_SIZE = 30.0;
+        const LIGHT_NEAR = 1.0;
+        const LIGHT_FAR = 60.0;
+
+        const lightProjection = ortho(
+            -LIGHT_FRUSTUM_SIZE, LIGHT_FRUSTUM_SIZE,
+            -LIGHT_FRUSTUM_SIZE, LIGHT_FRUSTUM_SIZE,
+            LIGHT_NEAR, LIGHT_FAR
+        );
+
+        // La matriz de vista de la luz simula que la "cámara" de la luz mira hacia el origen (0,0,0)
+        // desde LIGHT_POS, que es la posición ficticia de la fuente de luz.
+        const lightView = lookAt(LIGHT_POS, CAMERA_TARGET, [0, 1, 0]);
+
+        // Matriz de proyección de la luz: P_light * V_light
+        const lightViewProjectionMatrix = multiply(lightProjection, lightView);
+
+        // =====================================================================
+        // BUCLE DE RENDERIZADO
+        // =====================================================================
+
+        function drawScene(program, lightPass) {
+            GL.useProgram(program);
+            
+            // Si es el paso de la luz, usar la matriz de luz
+            if (lightPass) {
+                GL.uniformMatrix4fv(uniforms.shadow.lightMatrix, false, lightViewProjectionMatrix);
+            } 
+            // Si es el paso de la escena principal, configurar todos los uniforms de la cámara y luz
+            else {
+                const aspectRatio = CANVAS.width / CANVAS.height;
+                const projectionMatrix = perspective(FOV, aspectRatio, NEAR, FAR);
+                const viewMatrix = lookAt(CAMERA_POS, CAMERA_TARGET, [0, 1, 0]);
+                
+                GL.uniformMatrix4fv(uniforms.scene.view, false, viewMatrix);
+                GL.uniformMatrix4fv(uniforms.scene.projection, false, projectionMatrix);
+                GL.uniformMatrix4fv(uniforms.scene.lightViewProjection, false, lightViewProjectionMatrix);
+                GL.uniform3fv(uniforms.scene.lightDir, LIGHT_DIRECTION);
+                GL.uniform3fv(uniforms.scene.viewPos, CAMERA_POS);
+                
+                // Enlazar el Shadow Map a la textura 0
+                GL.activeTexture(GL.TEXTURE0);
+                GL.bindTexture(GL.TEXTURE_2D, shadowMap);
+                GL.uniform1i(uniforms.scene.shadowMap, 0); // Shadow map en el sampler 0
+            }
+
+            // Dibujar cada objeto
+            renderObjects.forEach(obj => {
+                GL.bindVertexArray(obj.vao);
+                
+                if (!lightPass) {
+                    GL.uniformMatrix4fv(uniforms.scene.model, false, obj.model);
+                    GL.uniform3fv(uniforms.scene.objectColor, obj.color);
+                }
+
+                // El grid solo necesita ser renderizado en el paso de luz si los objetos proyectan sobre él.
+                // Y SIEMPRE debe ser renderizado en el paso principal.
+                // En este demo, renderizamos todo en ambos pasos.
+                GL.drawElements(GL.TRIANGLES, obj.count, GL.UNSIGNED_SHORT, 0);
+            });
+
+            GL.bindVertexArray(null);
+        }
+
+
+        function render() {
+            // --- PASO 1: RENDERIZAR LA PROFUNDIDAD (Shadow Map) ---
+            
+            GL.bindFramebuffer(GL.FRAMEBUFFER, shadowFBO);
+            GL.viewport(0, 0, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
+            
+            GL.clear(GL.DEPTH_BUFFER_BIT); // Solo limpiar el buffer de profundidad
+            GL.enable(GL.DEPTH_TEST);
+            
+            // Usar el programa de sombra
+            drawScene(shadowProgram, true);
+
+            // --- PASO 2: RENDERIZAR LA ESCENA CON SOMBRAS ---
+
+            GL.bindFramebuffer(GL.FRAMEBUFFER, null); // Volver al framebuffer por defecto (pantalla)
+            GL.viewport(0, 0, CANVAS.width, CANVAS.height);
+            
+            GL.clearColor(0.2, 0.2, 0.2, 1.0);
+            GL.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT);
+            
+            // Usar el programa de escena
+            drawScene(sceneProgram, false);
+
+            requestAnimationFrame(render);
+        }
+
+        // Inicializar el bucle de renderizado
+        requestAnimationFrame(render);
+
+    </script>
+</body>
+</html>
