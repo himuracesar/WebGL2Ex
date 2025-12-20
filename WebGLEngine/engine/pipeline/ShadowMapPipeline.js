@@ -7,8 +7,8 @@ class ShadowMapPipeline extends Pipeline {
 
     constructor(gl){
         var vertexShaderSrc = `#version 300 es
-            precision mediump float;
-            //precision highp float;
+            //precision mediump float;
+            precision highp float;
 
             layout(location=0) in vec3 in_position;
             layout(location=1) in vec2 in_texcoord;

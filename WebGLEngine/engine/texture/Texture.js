@@ -72,7 +72,7 @@ class Texture {
      * Set a WebGLTexture
      * @param {WebGLTexture} texture Texture of WebGL
      */
-    setTexture(texture){
+    setWebGLTexture(texture){
         this.texture = texture;
     }
 }

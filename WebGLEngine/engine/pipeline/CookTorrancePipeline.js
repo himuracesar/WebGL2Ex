@@ -7,8 +7,8 @@ class CookTorrancePipeline extends Pipeline {
 
     constructor(gl){
         var vertexShaderSrc = `#version 300 es
-            precision mediump float;
-            //precision highp float;
+            //precision mediump float;
+            precision highp float;
 
             layout(location=0) in vec3 in_position;
             layout(location=1) in vec2 in_texcoord;
@@ -27,14 +27,15 @@ class CookTorrancePipeline extends Pipeline {
 
                 o_positionWV = (u_mView * u_mModel * vec4(in_position, 1.0)).xyz;
                 //o_normalWV = in_normal;
-                o_normalWV = (u_mView * u_mModel * vec4(in_normal, 0.0)).xyz;
+                //o_normalWV = (u_mView * u_mModel * vec4(in_normal, 0.0)).xyz;
+                o_normalWV = vec4(transpose(inverse(u_mView * u_mModel)) * vec4(in_normal, 0.0)).xyz;
                 o_texcoord = in_texcoord;
             }
         `;
         
         var fragmentShaderSrc = `#version 300 es
-            precision mediump float;
-            //precision highp float;
+            //precision mediump float;
+            precision highp float;
 
             in vec3 o_positionWV;
             in vec3 o_normalWV;
@@ -53,10 +54,12 @@ class CookTorrancePipeline extends Pipeline {
                 float metallness;
                 float fresnel;
                 int hasTexture;
+                float padding1;
             };
 
             struct DirectionalLight
             {
+                vec4 position;
                 vec4 direction;
                 vec4 color;
                 int enabled;
@@ -207,7 +210,7 @@ class CookTorrancePipeline extends Pipeline {
 
             vec4 GetDiffuseLighting(vec3 light, vec3 normal, vec4 color, vec4 diffuseMaterial)
             {
-                normal = normalize(normal);
+                //normal = normalize(normal);
                 float geometryTerm = max(0.0, dot(light, normal));
 
                 return diffuseMaterial * geometryTerm * color;
@@ -221,7 +224,7 @@ class CookTorrancePipeline extends Pipeline {
                 lighting.diffuse = vec4(0.0f, 0.0f, 0.0f, 1.0f);
                 lighting.specular = vec4(0.0f, 0.0f, 0.0f, 1.0f);
                 
-                mat4 mWorldView = u_mView * u_mModel;
+                mat4 mWorldView = u_mView;
 
                 vec4 light = mWorldView * -dl.direction;
                 light = normalize(light);

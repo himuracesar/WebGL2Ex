@@ -49,6 +49,7 @@ class PhongShadingPipeline extends Pipeline {
 
             struct DirectionalLight
             {
+                vec4 position;
                 vec4 direction;
                 vec4 color;
                 int enabled;

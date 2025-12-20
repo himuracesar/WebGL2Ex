@@ -38,6 +38,14 @@ const ProjectMode = Object.freeze({
   Development : 2
 });
 
+const RenderTargetEnums = {
+  Use : Object.freeze({
+    Custom : 0,
+    Albedo : 1,
+    ShadowMap : 2
+  })
+}
+
 include("/WebGLEngine/engine/Camera.js");
 include("/WebGLEngine/engine/m4.js");
 include("/WebGLEngine/engine/KeyCode.js");
@@ -852,7 +860,7 @@ function parseLib(textLib) {
       //gl.generateMipmap(gl.TEXTURE_2D);
       gl.bindTexture(gl.TEXTURE_2D, null);
 
-      texture.setTexture(gltex);
+      texture.setWebGLTexture(gltex);
     }
     
     return texture;
@@ -885,7 +893,7 @@ function parseLib(textLib) {
         }
       }
 
-      texture.setTexture(tex);
+      texture.setWebGLTexture(tex);
 
       return texture;
   }

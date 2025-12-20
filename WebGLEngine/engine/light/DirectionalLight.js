@@ -8,6 +8,7 @@ class DirectionalLight {
     constructor(){
         this.buffer = null;
         this.color = [1.0, 1.0, 1.0, 1.0];
+        this.position = [1.0, -1.0, -1.0, 1.0];
 	    this.direction = [1.0, -1.0, -1.0, 0.0];
 	    this.enabled = true;
 	    this.intensity = 1.0;
@@ -109,6 +110,23 @@ class DirectionalLight {
     }
 
     /**
+     * Get the position of the light.
+     * @returns {Vector4} position
+     */
+    getPosition(){
+        return this.position;
+    }
+
+    /**
+     * Position of the light.
+     * @param {Vector4} position 
+     */
+    setPosition(position){
+        this.position = position;
+        this.hasChange = true;
+    }
+
+    /**
      * Get a uniform buffer to send the information about material to shader
      * @param pipeline Pipeline where the uniform block is
      * @param nameUbo Name of the uniform block in the program of the pipeline
@@ -124,6 +142,7 @@ class DirectionalLight {
             this.buffer = webGLengine.createBuffer(gl);
             gl.bindBufferBase(gl.UNIFORM_BUFFER, this.bindingPoint, this.buffer);
             gl.bufferData(gl.UNIFORM_BUFFER, new Float32Array([
+                this.position[0], this.position[1], this.position[2], this.position[3],
                 this.direction[0], this.direction[1], this.direction[2], this.direction[3],
                 this.color[0], this.color[1], this.color[2], this.color[3],
                 this.enabled ? 1 : 0,
@@ -131,14 +150,14 @@ class DirectionalLight {
                 0, 0 //padding
             ]), gl.DYNAMIC_DRAW);
 
-            this.indexBuffer = gl.getUniformBlockIndex(pipeline.getProgram(), nameUbo);
-            gl.uniformBlockBinding(pipeline.getProgram(), this.indexBuffer, this.bindingPoint);
-
             gl.bindBuffer(gl.UNIFORM_BUFFER, null);
 
             this.hasChange = false;
         }
 
+        this.indexBuffer = gl.getUniformBlockIndex(pipeline.getProgram(), nameUbo);
+        gl.uniformBlockBinding(pipeline.getProgram(), this.indexBuffer, this.bindingPoint);
+        
         return this.buffer;
     }
 }

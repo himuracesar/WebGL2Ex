@@ -121,15 +121,14 @@ class StaticMesh {
             }
         }
 
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         gl.bindBuffer(gl.UNIFORM_BUFFER, null);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
         gl.bindTexture(gl.TEXTURE_2D, null);
         gl.bindVertexArray(null);
-        gl.useProgram(null);
+        //gl.useProgram(null);
 
-        pipeline.unuse();
+        //pipeline.unuse();
     }
 
     /**

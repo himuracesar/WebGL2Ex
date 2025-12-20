@@ -7,8 +7,8 @@ class CookTorranceShadowsPipeline extends Pipeline {
 
     constructor(gl){
         var vertexShaderSrc = `#version 300 es
-            precision mediump float;
-            //precision highp float;
+            //precision mediump float;
+            precision highp float;
 
             layout(location=0) in vec3 in_position;
             layout(location=1) in vec2 in_texcoord;
@@ -37,8 +37,8 @@ class CookTorranceShadowsPipeline extends Pipeline {
         `;
         
         var fragmentShaderSrc = `#version 300 es
-            precision mediump float;
-            //precision highp float;
+            //precision mediump float;
+            precision highp float;
 
             in vec3 o_positionWV;
             in vec3 o_normalWV;
@@ -58,10 +58,12 @@ class CookTorranceShadowsPipeline extends Pipeline {
                 float metallness;
                 float fresnel;
                 int hasTexture;
+                float padding1;
             };
 
             struct DirectionalLight
             {
+                vec4 position;
                 vec4 direction;
                 vec4 color;
                 int enabled;
@@ -227,7 +229,7 @@ class CookTorranceShadowsPipeline extends Pipeline {
                 lighting.diffuse = vec4(0.0f, 0.0f, 0.0f, 1.0f);
                 lighting.specular = vec4(0.0f, 0.0f, 0.0f, 1.0f);
                 
-                mat4 mWorldView = u_mView * u_mModel;
+                mat4 mWorldView = u_mView;
 
                 vec4 light = mWorldView * -dl.direction;
                 light = normalize(light);
@@ -331,17 +333,41 @@ class CookTorranceShadowsPipeline extends Pipeline {
 
             float ShadowCalculation(vec4 fragPosLightSpace)
             {
+                float shadow = 0.0f;
                 // perform perspective divide
                 vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
                 // transform to [0,1] range
                 projCoords = projCoords * 0.5 + 0.5;
+                
+                if(projCoords.z > 1.0)
+                    return shadow;
+
                 // get closest depth value from light’s perspective (using
                 // [0,1] range fragPosLight as coords)
                 float closestDepth = texture(u_shadowMap, projCoords.xy).r;
                 // get depth of current fragment from light’s perspective
                 float currentDepth = projCoords.z;
+
+                vec3 lightPos = vec4(u_mView * dl.position).xyz;
+                vec3 lightDir = normalize(lightPos - o_positionWV);
+
+                //float bias = max(0.05f * (1.0f - dot(normalize(o_normalWV), lightDir)), 0.005f);
+                float bias = 0.005f;
                 // check whether current frag pos is in shadow
-                float shadow = (currentDepth > closestDepth + 0.005f) ? 1.0f : 0.0f;
+                //shadow = (currentDepth - bias > closestDepth) ? 1.0f : 0.0f;
+
+                // PCF
+                shadow = 0.0;
+                vec2 texelSize = 1.0f / vec2(textureSize(u_shadowMap, 0));
+                for(int x = -1; x <= 1; ++x)
+                {
+                    for(int y = -1; y <= 1; ++y)
+                    {
+                        float pcfDepth = texture(u_shadowMap, projCoords.xy + vec2(x, y) * texelSize).r; 
+                        shadow += currentDepth - bias > pcfDepth  ? 1.0f : 0.0f;        
+                    }    
+                }
+                shadow /= 9.0f;
                 
                 return shadow;
             }
@@ -382,28 +408,11 @@ class CookTorranceShadowsPipeline extends Pipeline {
                 }
 
                 float shadow = ShadowCalculation(o_posShadow);
-                //color = (1.0f - shadow) * (lighting.diffuse + lighting.specular) + lighting.ambient;
-                color = vec4((1.0f - shadow), 0.0f, 0.0f, 1.0);
+                color = (1.0f - shadow) * (lighting.diffuse + lighting.specular) + lighting.ambient;
+                //color = vec4((1.0f - shadow), 0.0f, 0.0f, 1.0);
 
-                /*if(mat.hasTexture > 0)
-                    color = texture(u_sampler0, vec2(o_texcoord.x, o_texcoord.y)) * color;*/
-                    
-                /*--------------------------------------------------------------------------------------
                 if(mat.hasTexture > 0)
-                    color = texture(u_sampler0, vec2(o_texcoord.x, o_texcoord.y)) * (lighting.diffuse + lighting.specular + lighting.ambient);
-                else
-                    color = lighting.diffuse + lighting.specular + lighting.ambient;
-
-                vec3 shadowCoord = (o_posShadow.xyz / o_posShadow.w) / 2.0f + 0.5f;
-                vec4 rgbaDepth = texture(u_shadowMap, shadowCoord.xy);
-                float depth = rgbaDepth.r; // Retrieve the z-value from R
-                float visibility = (shadowCoord.z > depth + 0.005f) ? 0.7f : 1.0f;
-
-                color = vec4(color.rgb * visibility, color.a);
-                //color = vec4(visibility, 0.0f, 0.0f, color.a);
-                //color = texture(u_shadowMap, vec2(o_texcoord.x, o_texcoord.y));
-                //color = rgbaDepth;
-                //color = vec4(shadowCoord.z, 0.0f, 0.0f, 1.0f);*/
+                    color = texture(u_sampler0, vec2(o_texcoord.x, o_texcoord.y)) * color;
             }
         `;
     
