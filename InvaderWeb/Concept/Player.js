@@ -11,7 +11,7 @@ class Player extends Actor {
         this.mesh = null;
         this.position = [0.0, 10.0, 100.0];
         this.speed = 4.0;
-        this.bounding = new SphereBounding({ radio: 20.0, position: this.position });
+        this.collider = new SphereBounding({ radio: 20.0, position: this.position });
 
         var fnMesh = webGLengine.createMeshByObjFile(gl, "meshes/player.obj");
         fnMesh.then((staticMesh) => {

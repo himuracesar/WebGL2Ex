@@ -10,7 +10,7 @@ class Actor {
         this.mesh = null;
         this.position = [0.0, 0.0, 0.0];
         this.direction = [0.0, 0.0, 0.0];
-        this.bounding = null;
+        this.collider = null;
         this.speed = 0.0;
         this.birthTime = (new Date()).getTime();
         this.lifespan = 0.0; //milliseconds
@@ -61,8 +61,8 @@ class Actor {
             this.mesh.setPosition(this.position);
         }
 
-        if(this.bounding != null){
-            this.bounding.setPosition(this.position);
+        if(this.collider != null){
+            this.collider.setPosition(this.position);
         }
     }
 
@@ -125,11 +125,11 @@ class Actor {
     }
 
     /**
-     * Get the bounding
-     * @returns {BoundingVolume} the bounding
+     * Get the collider
+     * @returns {BoundingVolume} the collider
      */
-    getBounding() {
-        return this.bounding;
+    getCollider() {
+        return this.collider;
     }
 
     /**

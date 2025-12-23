@@ -22,6 +22,8 @@
     <script type="text/javascript" src="../../WebGLEngine/engine/game/Actor.js"></script>
     <script type="text/javascript" src="../../WebGLEngine/engine/game/CollisionManager.js"></script>
 
+    <script type="text/javascript" src="../../WebGLEngine/engine/lib/dat.gui.js"></script>
+
     <script type="text/javascript" src="Player.js"></script>
     <script type="text/javascript" src="BulletPlayer.js"></script>
     <script type="text/javascript" src="enemies/Simple.js"></script>
@@ -406,6 +408,7 @@
             rtShadows = new RenderTarget(2048, 2048, RenderTargetEnums.Use.ShadowMap);
         
             buildShadowTransform();
+            gui();
 
             rotation = 0.0;
             
@@ -431,6 +434,43 @@
                 lightShadow.view = m4.inverse(m4.lookAt([lightShadow.position[0], lightShadow.position[1], lightShadow.position[2]], player.getPosition(), [0.0, 1.0, 0.0]));
                 lightShadow.perspective = m4.perspective(webGLengine.degreeToRadian(45.0), rtShadows.getWidth() / rtShadows.getHeight(), 0.1, 2000.0);
             }
+        }
+
+        function gui(){
+            var gui = new dat.GUI();
+            var folder1 = gui.addFolder('Flow Field');
+            var person = {age: 45};
+            gui.add(person, 'age', 0, 100);
+
+            var palette = {
+                color1: '#FF0000', // CSS string
+                color2: [ 0, 128, 255 ], // RGB array
+                color3: [ 0, 128, 255, 0.3 ], // RGB with alpha
+                color4: { h: 350, s: 0.9, v: 0.3 } // Hue, saturation, value
+            };
+
+            gui.addColor(palette, 'color1');
+            gui.addColor(palette, 'color2');
+            gui.addColor(palette, 'color3');
+            gui.addColor(palette, 'color4');
+
+            const myObject = {
+                myBoolean: true,
+                myString: 'lil-gui',
+                myNumber: 1
+            };
+
+            gui.add( myObject, 'myBoolean' );
+            gui.add( myObject, 'myString' );
+            gui.add( myObject, 'myNumber' );
+
+            // Add sliders to number fields by passing min and max
+            gui.add( myObject, 'myNumber', 0, 1 );
+            gui.add( myObject, 'myNumber', 0, 100, 2 ); // snap to even numbers
+
+            // Create dropdowns by passing an array or object of named values
+            gui.add( myObject, 'myNumber', [ 0, 1, 2 ] );
+            gui.add( myObject, 'myNumber', { Label1: 0, Label2: 1, Label3: 2 } );
         }
 
         function update(){

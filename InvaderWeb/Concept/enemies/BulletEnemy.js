@@ -32,7 +32,7 @@ class BulletEnemy extends Actor {
         this.id = "BE" + this.birthTime;
         this.life = 1.0;
 
-        this.bounding = new SphereBounding({ radio: 8.0, position: this.position });
+        this.collider = new SphereBounding({ radio: 8.0, position: this.position });
 
         this.status = BulletEnemy.Status.LIVE;
     }

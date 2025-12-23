@@ -92,10 +92,10 @@ class CollisionManager {
                     if(webGLengine.getMessages(e2.getID()) !== undefined)
                         continue;
 
-                    var sumRadios = e1.getBounding().getRadio() + e2.getBounding().getRadio();
+                    var sumRadios = e1.getCollider().getRadio() + e2.getCollider().getRadio();
 
-                    const e1pos = e1.getBounding().getPosition();
-                    const e2pos = e2.getBounding().getPosition();
+                    const e1pos = e1.getCollider().getPosition();
+                    const e2pos = e2.getCollider().getPosition();
                     var distance = Math.sqrt(Math.pow(e2pos[0] - e1pos[0], 2) + Math.pow(e2pos[1] - e1pos[1], 2) + Math.pow(e2pos[2] - e1pos[2], 2));
 
                     if(distance < sumRadios){
