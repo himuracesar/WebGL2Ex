@@ -103,4 +103,20 @@ class Screen {
     setVisible(v){
         this.visible = v;
     }
+
+    /**
+     * Get if the component is visible (true) or not (false)
+     * @returns {bool} Component visible
+     */
+    isVisible(){
+        return this.visible;
+    }
+
+    /**
+     * Get the position of the screen.
+     * @returns {Vector3} position
+     */
+    getPosition(){
+        return this.position;
+    }
 }

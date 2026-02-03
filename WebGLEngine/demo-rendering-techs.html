@@ -1,0 +1,783 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rendering Techniques - WebGL2 Engine</title>
+
+    <link rel="icon" type="image/x-icon" href="/images/favicon.ico">
+
+    <script type="text/javascript" src="engine/WebGL-Engine.js"></script>
+    <script type="text/javascript" src="engine/Ray.js"></script>
+    <script type="text/javascript" src="engine/bounding/BoundingVolume.js"></script>
+    <script type="text/javascript" src="engine/bounding/BoundingSphere.js"></script>
+    <script type="text/javascript" src="engine/pipeline/Pipeline.js"></script>
+    <script type="text/javascript" src="engine/pipeline/SimplePipeline.js"></script>
+    <script type="text/javascript" src="engine/pipeline/CookTorrancePipeline.js"></script>
+    <script type="text/javascript" src="engine/pipeline/CookTorranceShadowsPipeline.js"></script>
+    <script type="text/javascript" src="engine/pipeline/OutlinePipeline.js"></script>
+    <script type="text/javascript" src="engine/pipeline/ShadowMapPipeline.js"></script>
+    <script type="text/javascript" src="engine/light/DirectionalLight.js"></script>
+    <script type="text/javascript" src="engine/light/PointLight.js"></script>
+    <script type="text/javascript" src="engine/light/SpotLight.js"></script>
+
+    <script type="text/javascript" src="../../WebGLEngine/engine/lib/dat.gui.js"></script>
+    <script type="text/javascript" src="../../WebGLEngine/engine/Screen.js"></script>
+    <script type="text/javascript" src="../../WebGLEngine/engine/pipeline/ScreenPipeline.js"></script>
+
+    <script type="text/javascript" src="engine/Shape.js"></script>
+
+</head>
+<body onload="init();">
+    <!--canvas id="webGLcanvas"-->
+    <canvas id="webGLcanvas" width="1300" height="900">
+        Your browser does not support the HTML5 canvas element.
+    </canvas>
+    
+    <script type="text/javascript">
+        var gl;
+        var canvas;
+        var camera;
+
+        var x = 0;
+        var y = 0;
+        var lastX = 0;
+        var lastY = 0;
+        var dragging = false;
+
+        var projectMode = ProjectMode.Development;
+
+        //------------- Meshes -------------
+        var floor;
+        var sphere;
+        var cube;
+        var cylinder;
+        var pyramid;
+        var cone;
+
+        //------------- Textures -------------
+        var texFloor;
+
+        //------------- Materials -------------
+        var m_red;
+        var m_blue;
+        var m_green;
+        var m_yellow;
+
+        //------------- Pipelines -------------
+        var simplePipeline;
+        var cookTorrancePipeline;
+        var cookTorranceShadowsPipeline;
+        var shadowMapPipeline;
+        var screenPipeline;
+        var outlinePipeline;
+
+        //------------- Lights -------------
+        var directionalLight;
+        var pointLight;
+        var spotLight;
+        var lightShadow;
+
+        //------------- Screens ---------------
+        var depthScreen;
+        var stencilScreen;
+
+
+        var selectedObject = null;
+
+        /**
+         * Create basic shapes.
+         */
+        function createShapes(){
+            var shape = new Shape();
+            
+            var descriptor = {};
+            descriptor.radio = 50.0;
+            descriptor.slices = 20;
+            descriptor.stacks = 20;
+            descriptor.boundingVolumeType = BoundingVolumeEnums.Type.Sphere;
+
+            sphere = shape.createSphere(descriptor);
+            sphere.setMaterial(0, m_red);
+            sphere.getSubmesh(0).materialIndex = 0;
+
+            descriptor = {};
+            descriptor.delta = [100.0, 0.0, 100.0];
+            descriptor.numVertRows = 50;
+            descriptor.numVertCols = 50;
+            descriptor.position = [0.0, 0.0, 0.0];
+            descriptor.texScale = 1.0;
+            
+            grid = shape.createGrid(descriptor);
+            grid.setMaterial(0, m_gray);
+            grid.getSubmesh(0).materialIndex = 0;
+
+            descriptor = {};
+            descriptor.delta = [20.0, 0.0, 20.0];
+            descriptor.numVertRows = 40;
+            descriptor.numVertCols = 40;
+            descriptor.position = [0.0, 0.0, 0.0];
+            descriptor.texScale = 0.25;
+
+            floor = shape.createGrid(descriptor);
+            floor.setMaterial(0, m_white);
+            floor.getSubmesh(0).materialIndex = 0;
+            floor.addTexture(texFloor);
+
+            descriptor = {};
+            descriptor.width = 50.0;
+            descriptor.height = 50.0;
+            descriptor.depth = 50.0;
+
+            cube = shape.createCube(descriptor);
+            cube.setMaterial(0, m_white);
+            cube.getSubmesh(0).materialIndex = 0;
+            cube.setPosition([0.0, 25.0, 0.0]);
+
+            descriptor = {};
+            descriptor.slices = 10;
+            descriptor.stacks = 10;
+            descriptor.bottomRadio = 20.0;
+            descriptor.topRadio = 20.0;
+            descriptor.height = 100.0;
+
+            cylinder = shape.createCylinder(descriptor);
+            cylinder.setMaterial(0, m_white);
+            cylinder.getSubmesh(0).materialIndex = 0;
+            cylinder.setPosition([70.0, 50.0, 0.0]);
+
+            descriptor = {};
+            descriptor.slices = 4;
+            descriptor.stacks = 20;
+            descriptor.bottomRadio = 40.0;
+            descriptor.topRadio = 1.0;
+            descriptor.height = 120.0;
+
+            pyramid = shape.createCylinder(descriptor);
+            pyramid.setMaterial(0, m_white);
+            pyramid.getSubmesh(0).materialIndex = 0;
+            pyramid.setPosition([150.0, 70.0, 0.0]);
+
+            descriptor = {};
+            descriptor.slices = 20;
+            descriptor.stacks = 20;
+            descriptor.bottomRadio = 40.0;
+            descriptor.topRadio = 1.0;
+            descriptor.height = 120.0;
+
+            cone = shape.createCylinder(descriptor);
+            cone.setMaterial(0, m_white);
+            cone.getSubmesh(0).materialIndex = 0;
+            cone.setPosition([-200.0, 70.0, 0.0]);
+        }
+
+        function createMaterials(){
+            m_red = new Material();
+            m_red.setDiffuseColor([1.0, 0.0, 0.0, 0.0]);
+            m_red.setAmbientColor([0.5, 0.0, 0.0, 1.0]);
+            m_red.setSpecularColor([1.0, 1.0, 1.0, 1.0]);
+            m_red.setSpecularPower(32.0);
+            m_red.setBindingPoint(0);
+            m_red.setName("M_RED");
+            m_red.setHasTexture(false);
+            m_red.setMetallness(0.5);
+            m_red.setRoughness(0.05);
+            m_red.setFresnel(0.1);
+
+            m_blue = new Material();
+            m_blue.setDiffuseColor([0.0, 0.0, 1.0, 0.0]);
+            m_blue.setAmbientColor([0.0, 0.0, 0.5, 1.0]);
+            m_blue.setSpecularColor([1.0, 1.0, 1.0, 1.0]);
+            m_blue.setSpecularPower(32.0);
+            m_blue.setBindingPoint(0);
+            m_blue.setName("M_BLUE");
+            m_blue.setHasTexture(false);
+            m_blue.setMetallness(0.5);
+            m_blue.setRoughness(0.2);
+            m_blue.setFresnel(0.5);
+
+            m_green = new Material();
+            m_green.setDiffuseColor([0.0, 1.0, 0.0, 0.0]);
+            m_green.setAmbientColor([0.0, 0.5, 0.0, 1.0]);
+            m_green.setSpecularColor([1.0, 1.0, 1.0, 1.0]);
+            m_green.setSpecularPower(32.0);
+            m_green.setBindingPoint(0);
+            m_green.setName("M_GREEN");
+            m_green.setHasTexture(false);
+            m_green.setMetallness(0.5);
+            m_green.setRoughness(0.5);
+            m_green.setFresnel(0.5);
+
+            m_yellow = new Material();
+            m_yellow.setDiffuseColor([1.0, 1.0, 0.0, 1.0]);
+            m_yellow.setAmbientColor([0.5, 0.5, 0.0, 1.0]);
+            m_yellow.setSpecularColor([1.0, 1.0, 1.0, 1.0]);
+            m_yellow.setSpecularPower(32.0);
+            m_yellow.setBindingPoint(0);
+            m_yellow.setName("M_YELLOW");
+            m_yellow.setHasTexture(false);
+            m_yellow.setMetallness(0.5);
+            m_yellow.setRoughness(0.25);
+            m_yellow.setFresnel(1.0);
+
+            m_gray = new Material();
+            m_gray.setDiffuseColor([0.5, 0.5, 0.5, 1.0]);
+            m_gray.setAmbientColor([0.5, 0.5, 0.5, 1.0]);
+            m_gray.setSpecularColor([1.0, 1.0, 1.0, 1.0]);
+            m_gray.setSpecularPower(32.0);
+            m_gray.setBindingPoint(0);
+            m_gray.setName("M_GRAY");
+            m_gray.setHasTexture(false);
+            m_gray.setMetallness(0.5);
+            m_gray.setRoughness(1.0);
+            m_gray.setFresnel(0.0);
+
+            m_white = new Material();
+            m_white.setDiffuseColor([1.0, 1.0, 1.0, 1.0]);
+            m_white.setAmbientColor([1.0, 1.0, 1.0, 1.0]);
+            m_white.setSpecularColor([1.0, 1.0, 1.0, 1.0]);
+            m_white.setSpecularPower(32.0);
+            m_white.setBindingPoint(0);
+            m_white.setName("M_WHITE");
+            m_white.setHasTexture(true);
+            m_white.setMetallness(0.5);
+            m_white.setRoughness(1.0);
+            m_white.setFresnel(0.0);
+            m_white.setDiffuseTextureIndex(0);
+        }
+
+        function picking(mesh){
+            var ray = webGLengine.pickingRay(event.clientX, event.clientY, canvas.width, canvas.height, camera.getViewMatrix(), camera.getProjectionMatrix());
+            
+            var intersect = -1;
+            for(var i = 0; i < mesh.submeshes.length; i++){
+                var bv = mesh.submeshes[i].getBoundingVolume();
+                if(bv != null){
+                    var intersect = webGLengine.intersectRaySphere(ray, bv);
+                    if(intersect > 0){
+                        console.log("Intersected with mesh -- submesh: " + i);
+                        selectedObject = mesh;
+                        break;
+                    }
+                }
+            }
+
+            if(intersect < 0){
+                selectedObject = null;
+            }
+        }
+        
+        function init(){
+            canvas = document.getElementById("webGLcanvas");
+            gl = webGLengine.initWebGL(canvas);
+
+            webGLengine.auditStencilBuffer(gl);
+
+            camera = new Camera(gl);
+            camera.setPosition([40.0, 100.0, 140.0]);
+            camera.setSpeed(2.0);
+            camera.setFarPlane(4000.0);
+
+            simplePipeline = new SimplePipeline(gl);
+            cookTorrancePipeline = new CookTorrancePipeline(gl);
+            cookTorranceShadowsPipeline = new CookTorranceShadowsPipeline(gl);
+            shadowMapPipeline = new ShadowMapPipeline(gl);
+            screenPipeline = new ScreenPipeline(gl);
+            outlinePipeline = new OutlinePipeline(gl);
+
+            window.onkeydown = event => this.onKeyDown(event);
+            window.onkeyup = event => this.onKeyUp(event);
+            canvas.onmouseup = event => this.onMouseUp(event);
+            canvas.onmousedown = event => this.onMouseDown(event);
+            canvas.onmousemove = event => this.onMouseMove(event);
+
+            texFloor = webGLengine.createTextureFromFile(gl, "textures/chess_pattern.jpg", false);
+        
+            directionalLight = new DirectionalLight();
+            directionalLight.setBindingPoint(1);
+            directionalLight.setEnabled(true);
+            directionalLight.setColor([1.0, 1.0, 1.0, 1.0]);
+            directionalLight.setPosition([-200.0, 500.0, -200.0, 1.0])
+
+            pointLight = new PointLight();
+            pointLight.setPosition([0.0, 50.0, 0.0]);
+            pointLight.setBindingPoint(2);
+            pointLight.setEnabled(false);
+            pointLight.setRange(80);
+            pointLight.setColor([0.99, 0.99, 0.99, 1.0]);
+            pointLight.setLinealAttenuation(0.125);
+            pointLight.setConstantAttenuation(0.2);
+            pointLight.setQuadraticAttenuation(0.003);
+            pointLight.setIntensity(10.0);
+
+            spotLight = new SpotLight();
+            spotLight.setPosition([0.0, 100.0, -50.0]);
+            spotLight.setDirection([0.0, -1.0, 0.0, 0.0]);
+            //spotLight.setColor([0.971, 0.939, 1.0, 1.0]);
+            spotLight.setColor([0.0, 0.0, 1.0, 1.0]);
+            spotLight.setEnabled(false);
+            spotLight.setSpotAngle(webGLengine.degreeToRadian(25.0));
+            //spotLight.setInnerAngle(30.0);
+            //spotLight.setExternAngle(30.0);
+            spotLight.setIntensity(1.0);
+            spotLight.setRange(200.0);
+            spotLight.setConstantAttenuation(0.125);
+            spotLight.setLinealAttenuation(1);
+            spotLight.setQuadraticAttenuation(0.0);
+            spotLight.setAngleX(webGLengine.degreeToRadian(-10.0));
+            spotLight.setAngleY(webGLengine.degreeToRadian(0.0));
+            spotLight.setAngleZ(webGLengine.degreeToRadian(40.0));
+            spotLight.setBindingPoint(3);
+
+            createMaterials();
+            createShapes();
+
+            //webGLengine.resizeCanvasToDisplaySize(canvas, 1, false);
+
+            //------------- Screen (only for debug) ---------------
+            depthScreen = new Screen(150, 100);
+            depthScreen.setPosition([10.0, 10.0, 0.0]);
+            depthScreen.setVisible(false);
+
+            stencilScreen = new Screen(300, 250);
+            stencilScreen.setPosition([10.0, 100.0, 0.0]);
+            stencilScreen.setVisible(false);
+
+            //------------- Shadows -----------------
+            rtShadows = new RenderTarget(2048, 2048, RenderTargetEnums.Use.ShadowMap);
+
+            //------------- Stencil Buffer -----------------
+            rtStencil = new RenderTarget(1024, 1024, RenderTargetEnums.Use.StencilBuffer);
+        
+            lightShadow = {};
+            lightShadow.bias = 0.0;
+            lightShadow.intensity = 0.6;
+            lightShadow.enabled = true;
+
+            buildShadowTransform("position");
+            gui();
+            
+            updateAndRender();
+        }
+
+        function input(){
+            if(keypress[KeyCode.W])
+                camera.moveForward(1);
+            if(keypress[KeyCode.S])
+                camera.moveForward(-1);
+            if(keypress[KeyCode.A])
+                camera.strafe(-1);
+            if(keypress[KeyCode.D])
+                camera.strafe(1);
+            if(keypress[KeyCode.Left])
+                camera.yaw(0.01);
+            if(keypress[KeyCode.Right])
+                camera.yaw(-0.01);
+            if(keypress[KeyCode.Up])
+                camera.pitch(0.01);
+            if(keypress[KeyCode.Down])
+                camera.pitch(-0.01);
+        }
+
+        function onMouseUp(event) {
+            this.dragging = false;
+        }
+
+        function onMouseDown(event) {
+            this.dragging = true;
+            var x = event.clientX; // x coordinate of a mouse pointer
+            var y = event.clientY; // y coordinate of a mouse pointer
+            var rect = event.target.getBoundingClientRect() ;
+
+            x = ((x - rect.left) - canvas.width / 2) / (canvas.width / 2);
+            y = (canvas.height / 2 - (y - rect.top)) / (canvas.height / 2);
+
+            picking(sphere);
+        }
+
+        function onMouseMove(event){
+            this.lastX = this.x;
+            this.lastY = this.y;
+
+            this.x = event.clientX;
+            this.y = event.clientY;
+
+            if (!this.dragging) 
+                return;
+
+            const dx = this.x - this.lastX;
+            const dy = this.y - this.lastY;
+
+            camera.yaw(dx * camera.getSpeedRotation());
+            camera.pitch(dy * camera.getSpeedRotation());
+        }
+
+        function buildShadowTransform(chng){
+            lightShadow.target = [0.0, 0.0, 0.0];
+            lightShadow.position = directionalLight.getPosition().slice(0,3);
+
+            if(chng == "position"){
+                var direction = m4.subtractVectors(lightShadow.target, lightShadow.position);
+                direction = m4.normalize(direction)
+                directionalLight.setDirection([direction[0], direction[1], direction[2], 0.0]);
+            } else if(chng == "direction"){
+                var direction = directionalLight.getDirection().slice(0,3);
+                direction = m4.normalize(direction);
+
+                var distance = m4.length(m4.subtractVectors(lightShadow.position, lightShadow.target));
+                lightShadow.position = [
+                    lightShadow.target[0] - direction[0] * distance,
+                    lightShadow.target[1] - direction[1] * distance,
+                    lightShadow.target[2] - direction[2] * distance
+                ];
+
+                directionalLight.setPosition([lightShadow.position[0], lightShadow.position[1], lightShadow.position[2], 1.0]);
+            }
+
+            //lightShadow.position = [-200.0, 500.0, -200.0]; 
+            lightShadow.position = directionalLight.getPosition().slice(0,3);
+            lightShadow.view = m4.inverse(m4.lookAt([lightShadow.position[0], lightShadow.position[1], lightShadow.position[2]], lightShadow.target, [0.0, 1.0, 0.0]));
+            
+            const LIGHT_FRUSTUM_SIZE = 600.0;
+            lightShadow.perspective = m4.orthographic(-LIGHT_FRUSTUM_SIZE, LIGHT_FRUSTUM_SIZE, -LIGHT_FRUSTUM_SIZE, LIGHT_FRUSTUM_SIZE, 1.0, 700.0);
+        }
+
+        function gui(){
+            var gui = new dat.GUI();
+
+            //------------------ Directional Light ------------------
+            var folderDirectionalLight = gui.addFolder('Directional Light');
+
+            const directionalLightProps = {
+                enabled: directionalLight.isEnabled(),
+                Color: webGLengine.color32BitsToColor8bits(directionalLight.getColor()),
+                Intensity: 1.0
+            };
+
+            folderDirectionalLight.add(directionalLightProps, 'enabled').name("Turn on/off").onChange(function(value) {
+                directionalLight.setEnabled(value);
+            });
+
+            folderDirectionalLight.addColor(directionalLightProps, 'Color').onChange(function(value) {
+                const rgb = webGLengine.color8BitsToColor32bits(value);
+                directionalLight.setColor([rgb[0], rgb[1], rgb[2], 1.0]);
+            });
+
+            folderDirectionalLight.add(directionalLightProps, 'Intensity').onChange(function(value) {
+                directionalLight.setIntensity(value);
+            });
+
+            var folderDirectionalLightPosition = folderDirectionalLight.addFolder('Position');
+            const directionalLightPosition = {
+                x: directionalLight.getPosition()[0],
+                y: directionalLight.getPosition()[1],
+                z: directionalLight.getPosition()[2]
+            };
+
+            var folderDirectionalLightDirection = folderDirectionalLight.addFolder('Direction');
+            const directionalLightDirection = {
+                x: directionalLight.getDirection()[0],
+                y: directionalLight.getDirection()[1],
+                z: directionalLight.getDirection()[2]
+            };
+
+            folderDirectionalLightDirection.add(directionalLightDirection, 'x', -1.0, 1.0).onChange(function(value) {
+                directionalLight.setDirection([value, directionalLightDirection.y, directionalLightDirection.z, 0.0]);
+                buildShadowTransform("direction");
+            });
+
+            folderDirectionalLightDirection.add(directionalLightDirection, 'y', -1.0, 1.0).onChange(function(value) {
+                directionalLight.setDirection([directionalLightDirection.x, value, directionalLightDirection.z, 0.0]);
+                buildShadowTransform("direction");
+            });
+
+            folderDirectionalLightDirection.add(directionalLightDirection, 'z', -1.0, 1.0).onChange(function(value) {
+                directionalLight.setDirection([directionalLightDirection.x, directionalLightDirection.y, value, 0.0]);
+                buildShadowTransform("direction");
+            });
+
+            folderDirectionalLightPosition.add(directionalLightPosition, 'x', -500.0, 500.0).onChange(function(value) {
+                directionalLight.setPosition([value, directionalLightPosition.y, directionalLightPosition.z, 1.0]);
+                buildShadowTransform("position");
+            });
+
+            folderDirectionalLightPosition.add(directionalLightPosition, 'y', 0.0, 500.0).onChange(function(value) {
+                directionalLight.setPosition([directionalLightPosition.x, value, directionalLightPosition.z, 1.0]);
+                buildShadowTransform("position");
+            });
+
+            folderDirectionalLightPosition.add(directionalLightPosition, 'z', -500.0, 500.0).onChange(function(value) {
+                directionalLight.setPosition([directionalLightPosition.x, directionalLightPosition.y, value, 1.0]);
+                buildShadowTransform("position");
+            });
+
+            //------------------ Shadows ------------------
+            var folderShadows = gui.addFolder('Shadows');
+
+            const shadowProps = {
+                enabled: true,
+                Intensity: 0.3,
+                Bias: 0.005
+            };
+
+            folderShadows.add(shadowProps, 'enabled').name("Turn on/off").onChange(function(value) {
+                lightShadow.enabled = value;
+            });
+
+            folderShadows.add(shadowProps, 'Intensity', 0.0, 1.0).onChange(function(value) {
+                lightShadow.intensity = value;
+            });
+
+            folderShadows.add(shadowProps, 'Bias', 0.0, 0.1, 0.001).onChange(function(value) {
+                lightShadow.bias = value;
+            });
+
+            //------------------ Render Targets ------------------
+            var folderRTShadowMap = gui.addFolder('Shadow Map');
+
+            const rtShadowMapProps = {
+                Width: rtShadows.getWidth(),
+                Height: rtShadows.getHeight(),
+                enabled: depthScreen.isVisible(),
+                x: depthScreen.getPosition()[0],
+                y: depthScreen.getPosition()[1]
+            };
+
+            folderRTShadowMap.add(rtShadowMapProps, 'enabled').name("Show/Hide").onChange(function(value) {
+                depthScreen.setVisible(value);
+            });
+
+            folderRTShadowMap.add(rtShadowMapProps, 'Width');
+            folderRTShadowMap.add(rtShadowMapProps, 'Height');
+
+            var folderShadowMapPosition = folderRTShadowMap.addFolder('Position');
+
+            folderShadowMapPosition.add(rtShadowMapProps, 'x', 0.0, canvas.width).onChange(function(value) {
+                depthScreen.setPosition([value, depthScreen.getPosition()[1], 0.0]);
+            });
+
+            folderShadowMapPosition.add(rtShadowMapProps, 'y', 0.0, canvas.height).onChange(function(value) {
+                depthScreen.setPosition([depthScreen.getPosition()[0], value, 0.0]);
+            });
+
+            /*var palette = {
+                color1: '#FF0000', // CSS string
+                color2: [ 0, 128, 255 ], // RGB array
+                color3: [ 0, 128, 255, 0.3 ], // RGB with alpha
+                color4: { h: 350, s: 0.9, v: 0.3 } // Hue, saturation, value
+            };
+
+            gui.addColor(palette, 'color1');
+            gui.addColor(palette, 'color2');
+            gui.addColor(palette, 'color3');
+            gui.addColor(palette, 'color4');
+
+            const myObject = {
+                myBoolean: true,
+                myString: 'lil-gui',
+                myNumber: 1
+            };
+
+            gui.add( myObject, 'myBoolean' );
+            gui.add( myObject, 'myString' );
+            gui.add( myObject, 'myNumber' );
+
+            // Add sliders to number fields by passing min and max
+            gui.add( myObject, 'myNumber', 0, 1 );
+            gui.add( myObject, 'myNumber', 0, 100, 2 ); // snap to even numbers
+
+            // Create dropdowns by passing an array or object of named values
+            gui.add( myObject, 'myNumber', [ 0, 1, 2 ] );
+            gui.add( myObject, 'myNumber', { Label1: 0, Label2: 1, Label3: 2 } );
+            //gui.add( myObject, 'myString' ).disable();*/
+        }
+
+        function update(){
+            input();
+
+            sphere.setPosition([-100.0, 50.0, 0.0]);
+            floor.setPosition([0.0, 0.0, 0.0])
+
+            depthScreen.setTexture(rtShadows.getTexture(0));
+            depthScreen.update();
+
+            stencilScreen.setTexture(rtStencil.getTexture(0));
+            stencilScreen.update();
+        }   
+
+        function render(){
+            //-------------- Shadow Map --------------
+            rtShadows.bind();
+            gl.viewport(0, 0, rtShadows.getWidth(), rtShadows.getHeight());
+            gl.clearColor(0.0, 0.0, 0.0, 1.0);
+            gl.clear(gl.DEPTH_BUFFER_BIT);
+
+            gl.enable(gl.DEPTH_TEST);
+            gl.cullFace(gl.FRONT); // Culling frontal para reducir peter panning
+
+            shadowMapPipeline.use();
+
+            shadowMapPipeline.setMatrix("u_mProj", lightShadow.perspective);
+            shadowMapPipeline.setMatrix("u_mView", lightShadow.view);
+
+            sphere.render(shadowMapPipeline);
+            floor.render(shadowMapPipeline);
+
+            shadowMapPipeline.unuse();
+            rtShadows.unbind();
+
+            //-------------- Render Scene --------------
+            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+            gl.clearColor(0.4, 0.6, 0.9, 1.0);
+            gl.stencilMask(0xFF);
+            gl.clearStencil(0);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+
+            gl.enable(gl.DEPTH_TEST);
+            gl.enable(gl.CULL_FACE);
+
+            gl.cullFace(gl.BACK);
+
+            cookTorranceShadowsPipeline.use();
+
+            gl.uniformMatrix4fv(cookTorranceShadowsPipeline.getUniformLocation("u_mProj"), false, camera.getProjectionMatrix());
+            gl.uniformMatrix4fv(cookTorranceShadowsPipeline.getUniformLocation("u_mView"), false, camera.getViewMatrix());
+            gl.uniform3fv(cookTorranceShadowsPipeline.getUniformLocation("u_camera_position"), camera.getPosition());
+
+            cookTorranceShadowsPipeline.setLight(directionalLight, "u_directional_light");
+            cookTorranceShadowsPipeline.setUniformSampler("u_shadowMap", rtShadows.getTexture(0).getWebGLTexture());
+            cookTorranceShadowsPipeline.setUniformMatrix4x4("u_mLightProjection", lightShadow.perspective);
+            cookTorranceShadowsPipeline.setUniformMatrix4x4("u_mLightView", lightShadow.view);
+            cookTorranceShadowsPipeline.setUniformInt("u_shadowsEnabled", lightShadow.enabled ? 1 : 0);
+            cookTorranceShadowsPipeline.setUniformFloat("u_shadowIntensity", lightShadow.intensity);
+            cookTorranceShadowsPipeline.setUniformFloat("u_shadowBias", lightShadow.bias);
+
+            floor.render(cookTorranceShadowsPipeline);
+
+            cookTorranceShadowsPipeline.unuse();
+
+            //------------------- Stencil -------------------
+            // Pass 1: Draw sphere to stencil buffer
+
+            gl.enable(gl.STENCIL_TEST);
+            //gl.clearStencil(0);
+            gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE); // Reemplazar con Ref si pasa el test
+            //gl.stencilOp(gl.KEEP, gl.REPLACE, gl.REPLACE);
+            //gl.stencilOp(gl.REPLACE, gl.REPLACE, gl.REPLACE); // Siempre escribir el valor de referencia
+            gl.stencilFunc(gl.ALWAYS, 1, 0xFF);         // Siempre pasa, escribe un '1'
+            gl.stencilMask(0xFF);                       // Habilitar escritura
+
+            cookTorrancePipeline.use();
+
+            gl.enable(gl.STENCIL_TEST);
+            gl.stencilOp(gl.REPLACE, gl.REPLACE, gl.REPLACE); // Siempre escribir el valor de referencia
+            gl.stencilFunc(gl.ALWAYS, 1, 0xFF);         // Siempre pasa, escribe un '1'
+            gl.stencilMask(0xFF);                       // Habilitar escritura
+
+            cookTorrancePipeline.setUniformMatrix4x4("u_mProj", camera.getProjectionMatrix());
+            cookTorrancePipeline.setUniformMatrix4x4("u_mView", camera.getViewMatrix());
+            cookTorrancePipeline.setUniformVector3("u_camera_position", camera.getPosition());
+
+            cookTorrancePipeline.setLight(directionalLight, "u_directional_light");
+            cookTorrancePipeline.setLight(pointLight, "u_point_light");
+            cookTorrancePipeline.setLight(spotLight, "u_spot_light");
+            
+            sphere.render(cookTorrancePipeline, RenderMode.Triangles);
+
+            //console.log(gl.getParameter(gl.STENCIL_FAIL));
+
+            cookTorrancePipeline.unuse();
+
+            simplePipeline.use();
+
+            simplePipeline.setUniformMatrix4x4("u_mProj", camera.getProjectionMatrix());
+            simplePipeline.setUniformMatrix4x4("u_mView", camera.getViewMatrix());
+            simplePipeline.setUniformVector3("u_camera_position", camera.getPosition());
+            simplePipeline.setColor([0.8, 0.8, 0.8, 1.0]);
+
+            cube.render(simplePipeline, RenderMode.Triangles); 
+            cylinder.render(simplePipeline, RenderMode.Triangles);
+            pyramid.render(simplePipeline, RenderMode.Triangles);
+            cone.render(simplePipeline, RenderMode.Triangles);
+
+            simplePipeline.unuse();
+
+
+            if(selectedObject != null){
+                // Pass 2: Draw sphere outline
+                outlinePipeline.use();
+
+                gl.stencilFunc(gl.NOTEQUAL, 1, 0xFF); // Solo dibujamos donde el valor del stencil NO SEA 1 (fuera de la esfera original)
+                gl.stencilMask(0x00); // Deshabilitar escritura en stencil para no ensuciar
+                gl.disable(gl.DEPTH_TEST); // Opcional: permite ver el borde incluso si algo lo ocluye ligeramente
+                //gl.disable(gl.CULL_FACE);
+
+                outlinePipeline.setUniformMatrix4x4("u_mProj", camera.getProjectionMatrix());
+                outlinePipeline.setUniformMatrix4x4("u_mView", camera.getViewMatrix());
+                outlinePipeline.setUniformFloat("u_thickness", 1.2);
+
+                /*sphere.render(outlinePipeline, RenderMode.Triangles);
+                cube.render(outlinePipeline, RenderMode.TrianglesStrip);
+                cylinder.render(outlinePipeline, RenderMode.TrianglesStrip);
+                pyramid.render(outlinePipeline, RenderMode.TrianglesStrip);
+                cone.render(outlinePipeline, RenderMode.TrianglesStrip);*/
+                selectedObject.render(outlinePipeline, RenderMode.Triangles);
+
+                // Limpieza de estado para el siguiente frame
+                gl.disable(gl.STENCIL_TEST);
+                //gl.enable(gl.DEPTH_TEST);
+
+                outlinePipeline.unuse();
+
+                /*simplePipeline.use();
+
+                simplePipeline.setUniformMatrix4x4("u_mProj", camera.getProjectionMatrix());
+                simplePipeline.setUniformMatrix4x4("u_mView", camera.getViewMatrix());
+                simplePipeline.setUniformVector3("u_camera_position", camera.getPosition());
+                simplePipeline.setColor([0.0, 1.0, 0.0, 1.0]);
+
+                sphere.render(simplePipeline, RenderMode.Lines);
+
+                simplePipeline.unuse();*/
+            }
+
+            //------------------- Only for Debug -------------------
+            /*if(projectMode == ProjectMode.Debug){
+                if(sphereLight !== undefined){
+                    simplePipeline.use();
+                    gl.uniformMatrix4fv(simplePipeline.getUniformLocation("u_mProj"), false, camera.getProjectionMatrix());
+                    gl.uniformMatrix4fv(simplePipeline.getUniformLocation("u_mView"), false, camera.getViewMatrix());
+                    
+                    simplePipeline.setColor(pointLight.getColor());
+                    sphereLight.setPosition(pointLight.getPosition());
+                    sphereLight.render(simplePipeline, RenderMode.Triangles);
+                }
+
+                if(coneLight !== undefined){
+                    simplePipeline.use();
+                    gl.uniformMatrix4fv(simplePipeline.getUniformLocation("u_mProj"), false, camera.getProjectionMatrix());
+                    gl.uniformMatrix4fv(simplePipeline.getUniformLocation("u_mView"), false, camera.getViewMatrix());
+                    
+                    simplePipeline.setColor(spotLight.getColor());
+                    coneLight.setPosition(spotLight.getPosition());
+                    coneLight.rotateX(spotLight.getAngleX());
+                    coneLight.rotateY(spotLight.getAngleY());
+                    coneLight.rotateZ(spotLight.getAngleZ());
+                    coneLight.render(simplePipeline, RenderMode.Triangles);
+                }
+            }*/
+
+            depthScreen.render(screenPipeline);
+            stencilScreen.render(screenPipeline);
+        }
+
+        function updateAndRender(){
+            update();
+            render();
+
+            requestAnimationFrame(updateAndRender);
+        }
+
+    </script>
+    
+</body>
+</html>

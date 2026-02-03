@@ -10,7 +10,6 @@
  * @param {string} file Path and name of the js file
  */
 function include(file) {
- 
   let script = document.createElement('script');
   script.src = file;
   script.type = 'text/javascript';
@@ -38,13 +37,22 @@ const ProjectMode = Object.freeze({
   Development : 2
 });
 
-const RenderTargetEnums = {
+const RenderTargetEnums = Object.freeze({
   Use : Object.freeze({
     Custom : 0,
     Albedo : 1,
-    ShadowMap : 2
+    ShadowMap : 2,
+    StencilBuffer : 3
   })
-}
+});
+
+const BoundingVolumeEnums = Object.freeze({
+  Type : Object.freeze({
+    None : 0,
+    Sphere : 1,
+    Cube : 2
+  })
+});
 
 include("/WebGLEngine/engine/Camera.js");
 include("/WebGLEngine/engine/m4.js");
@@ -55,7 +63,7 @@ include("/WebGLEngine/engine/Material.js");
 //include("/WebGLEngine/engine/Transform.js");
 include("/WebGLEngine/engine/texture/Texture.js");
 include("/WebGLEngine/engine/bounding/BoundingVolume.js");
-include("/WebGLEngine/engine/bounding/SphereBounding.js");
+include("/WebGLEngine/engine/bounding/BoundingSphere.js");
 include("/WebGLEngine/engine/RenderTarget.js");
 
 
@@ -80,7 +88,17 @@ include("/WebGLEngine/engine/RenderTarget.js");
        * @returns {WebGL2RenderingContext} Context of WebGL to render
        */
       function initWebGL(canvas){
-        var gl = canvas.getContext("webgl2");
+        //var gl = canvas.getContext("webgl2");
+
+        const gl = canvas.getContext("webgl2", {
+            stencil: true,              // Necesario para tus máscaras
+            antialias: true,           // Lo desactivamos para usar un post-process propio
+            depth: true,                // Necesario para 3D
+            alpha: false,               // Optimizamos el blending con el DOM
+            powerPreference: "high-performance", // Exigimos la mejor GPU disponible
+            desynchronized: true        // WebGL2: Reduce la latencia de input (baja latencia)
+        });
+
         if(!gl) {
           alert("Your browser does not support WebGL 2");
           return undefined;
@@ -91,6 +109,10 @@ include("/WebGLEngine/engine/RenderTarget.js");
         return gl;
       }
 
+      /**
+       * Auto resize the canvas to full screen.
+       * @param {HTMLCanvasElement} canvas The canvas to resize. 
+       */
       function autoResizeCanvas(canvas) {
           const expandFullScreen = () => {
               canvas.width = window.innerWidth;
@@ -129,11 +151,11 @@ include("/WebGLEngine/engine/RenderTarget.js");
     }
     
     /**
-     * Create a program and attach and load the shaders on GPU
-     * @param {WebGL2RenderingContext} gl Context of WebGL to render
-     * @param {WebGLShader} vertexShader Vertex Shader
-     * @param {WebGLShader} fragmentShader Fragment Shader
-     * @returns {WebGLProgram} program links to shaders
+     * Create a program and attach and load the shaders on GPU.
+     * @param {WebGL2RenderingContext} gl Context of WebGL to render.
+     * @param {WebGLShader} vertexShader Vertex Shader.
+     * @param {WebGLShader} fragmentShader Fragment Shader.
+     * @returns {WebGLProgram} program links to shaders.
      */
     function createProgram(gl, vertexShader, fragmentShader) {
         var program = gl.createProgram();
@@ -158,7 +180,6 @@ include("/WebGLEngine/engine/RenderTarget.js");
      *    Pass in window.devicePixelRatio for native pixels.
      * 
      * @return {boolean} true if the canvas was resized.
-     * @memberOf module:webgl-utils
      */
     function resizeCanvasToDisplaySize(canvas, multiplier, fullscreen) {
       if(fullscreen){
@@ -197,11 +218,11 @@ include("/WebGLEngine/engine/RenderTarget.js");
     }
 
     /**
-     * Get the uniform location of the shaders
-     * @param {WebGL2RenderingContext} gl Context of WebGL to render
-     * @param {WebGLProgram} program links to shaders
-     * @param {int} location Uniform location
-     * @returns {int} number represents the location of the attribute
+     * Get the uniform location of the shaders.
+     * @param {WebGL2RenderingContext} gl Context of WebGL to render.
+     * @param {WebGLProgram} program links to shaders.
+     * @param {int} location Uniform location.
+     * @returns {int} number represents the location of the attribute.
      */
     function getUniformLocation(gl, program, location){
       var u_loc = gl.getAttribLocation(program, location);
@@ -211,6 +232,28 @@ include("/WebGLEngine/engine/RenderTarget.js");
       }
 
       return u_loc;
+    }
+
+    /**
+     * Audit the stencil buffer precision
+     * @param {WebGL2RenderingContext} gl Context of WebGL to render.
+     */
+    function auditStencilBuffer(gl) {
+        // Query the real bits assigned to the stencil and depth buffers  
+        const stencilBits = gl.getParameter(gl.STENCIL_BITS);
+        const depthBits = gl.getParameter(gl.DEPTH_BITS);
+        
+        console.log(`--- Auditory of Context ---`);
+        console.log(`Stencil Precision: ${stencilBits} bits`);
+        console.log(`Depth Precision:   ${depthBits} bits`);
+
+        if (stencilBits > 0) {
+            // Calculate the maximum value (usually 255 for 8 bits)
+            const maxVal = Math.pow(2, stencilBits) - 1;
+            console.log(`State: Stencil available. Maximum value: ${maxVal}`);
+        } else {
+            console.warn("State: Stencil Buffer is NOT available!");
+        }
     }
 
     /**
@@ -812,7 +855,7 @@ function parseLib(textLib) {
 				//vmax = m4.vector3Max(vmax, [obj.geometries[i].data.position[j], obj.geometries[i].data.position[j + 1], obj.geometries[i].data.position[j + 2]]);
       }
 
-      //var bounding = new SphereBounding(vmin, vmax);
+      //var bounding = new BoundingSphere(vmin, vmax);
 
       var vbo = webGLengine.createBuffer(gl);
       gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
@@ -833,6 +876,19 @@ function parseLib(textLib) {
     mesh.setVertexFormat(vertexFormat);
     
     return mesh;
+  }
+
+  /**
+   * Create a vertex buffer
+   * @param {Float32Array} data Data to load in the buffer.
+   * @returns {WebGLBuffer} The vertex buffer created.
+   */
+  function createVertexBuffer(data){
+    var buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW); 
+
+    return buffer;
   }
 
   /**
@@ -954,6 +1010,34 @@ function parseLib(textLib) {
   }
 
   /**
+   * Converts color in 32 bits (0.0 - 1.0) to 8 bits (0 - 255)
+   * @param {Vector4} color 
+   * @returns {Vector4} Color in 8 bits
+   */
+  function color32BitsToColor8bits(color){
+    var r = Math.floor(color[0] * 255);
+    var g = Math.floor(color[1] * 255);
+    var b = Math.floor(color[2] * 255);
+    var a = Math.floor(color[3] * 255);
+
+    return [r, g, b, a];
+  }
+
+  /**
+   * Converts color in 8 bits (0 - 255) to 32 bits (0.0 - 1.0)
+   * @param {Vector4} color 
+   * @returns {Vector4} Color in 32 bits
+   */
+  function color8BitsToColor32bits(color){
+    var r = color[0] / 255.0;
+    var g = color[1] / 255.0;
+    var b = color[2] / 255.0;
+    var a = color[3] / 255.0;
+   
+    return [r, g, b, a];
+  }
+
+  /**
    * Get the content of shader file
    * @param {string} fileName Path and name of the file
    * @returns {string} The content of the file
@@ -1027,6 +1111,135 @@ function parseLib(textLib) {
     var ray = new Ray(origin, direction);
 
     return ray;
+  }
+
+  /**
+ * It detects the intersection between a ray and bounding sphere.
+ * @param {Ray} ray - The ray to test.
+ * @param {BoundingSphere} sphere - The bounding sphere to test.
+ * @returns {number} The distance 't' to the closest point of impact, or -1 if no intersection.
+ */
+function intersectRaySphere(ray, sphere) {
+    // Vector from ray's origin to sphere's center (L)
+    const L = m4.subtractVectors(sphere.getPosition(), ray.getOrigin());
+
+    // Project L onto the ray direction (tca)
+    // This is the point in the ray closest to the center of the sphere
+    const tca = L[0] * ray.getDirection()[0] + L[1] * ray.getDirection()[1] + L[2] * ray.getDirection()[2];
+    
+    // If tca is negative, the sphere is behind the ray
+    if (tca < 0) 
+      return -1;
+
+    // Orthogonal distance to the square from the center to the sphere to the ray(d^2)
+    // We use Pitágoras: d^2 = L^2 - tca^2
+    const d2 = (L[0] * L[0] + L[1] * L[1] + L[2] * L[2]) - (tca * tca);
+    const r2 = sphere.getRadio() * sphere.getRadio();
+
+    // If the distance d is greater than the radius, no intersection
+    if (d2 > r2) 
+      return -1;
+
+    // The distance from the projection's point to the point of input/output(thc)
+    const thc = Math.sqrt(r2 - d2);
+
+    // t0 is the input, t1 is the output
+    const t0 = tca - thc;
+    const t1 = tca + thc;
+
+    // Return the closest positive distance
+    return t0 < 0 ? (t1 < 0 ? -1 : t1) : t0;
+}
+
+  /**
+   * Generates a set of averaged normals for the outline effect.
+   * @param {Float32Array} positions - Array of positions [x, y, z, ...]
+   * @param {Uint16Array|Uint32Array} indices - Array of indices
+   * @returns {Float32Array} Array of averaged normals
+   */
+  function calculateSmoothNormals(positions, indices) {
+      const smoothNormals = new Float32Array(positions.length / 8 * 3); // Assuming 3 components per normal
+      const posToNormal = new Map(); // Map for accumulating normals by position
+
+      // 1. Group and accumulate face normals
+      // We iterate over the triangles
+      for (let i = 0; i < indices.length; i += 3) {
+        
+          //8 because each vertex has 8 components (x,y,z, u,v, nx,ny,nz)
+          const i0 = indices[i] * 8, i1 = indices[i + 1] * 8, i2 = indices[i + 2] * 8;
+          
+          // Obtener posiciones de los vértices del triángulo
+          const p0 = positions.slice(i0, i0 + 3); 
+          const p1 = positions.slice(i1, i1 + 3);
+          const p2 = positions.slice(i2, i2 + 3);
+
+          const v0 = m4.subtractVectors(p1, p0);
+          const v1 = m4.subtractVectors(p2, p0);
+          const faceNormal = m4.normalize(m4.cross(v0, v1));
+
+          // Accumulate in the map using the position as Key (using a string for exactitude)
+          [p0, p1, p2].forEach(p => {
+              const key = p.join(','); // Tip: p.map(n => n.toFixed(4)).join(',') para mayor robustez
+              if (!posToNormal.has(key)) 
+                posToNormal.set(key, [0, 0, 0]);
+
+              const n = posToNormal.get(key);
+              n[0] += faceNormal[0];
+              n[1] += faceNormal[1];
+              n[2] += faceNormal[2];
+          });
+      }
+
+      // 2. Normalize and re-distribute to the original vertices
+      //8 because each vertex has 8 components (x,y,z, u,v, nx,ny,nz)
+      for (let i = 0; i < positions.length / 8; i++) {
+          const p = positions.slice(i * 8, i * 8 + 3);
+          const key = p.join(',');
+          const n = posToNormal.get(key);
+          
+          // Normalizar el vector acumulado
+          const mag = Math.sqrt(n[0]**2 + n[1]**2 + n[2]**2) || 1.0;
+          smoothNormals[i * 3] = n[0] / mag;
+          smoothNormals[i * 3 + 1] = n[1] / mag;
+          smoothNormals[i * 3 + 2] = n[2] / mag;
+      }
+      
+      return smoothNormals;
+  }
+
+  /**
+   * Detecta si una malla tiene aristas duras (split normals).
+   * @param {Float32Array} positions 
+   * @param {Float32Array} normals 
+   * @returns {boolean}
+   */
+  function hasHardEdges(positions, normals) {
+      const posToNormal = new Map();
+      const EPSILON = 0.00001; // Para evitar errores de precisión flotante
+
+      for (let i = 0; i < positions.length / 3; i++) {
+          const x = positions[i * 3];
+          const y = positions[i * 3 + 1];
+          const z = positions[i * 3 + 2];
+          const key = `${x.toFixed(5)},${y.toFixed(5)},${z.toFixed(5)}`;
+
+          const nx = normals[i * 3];
+          const ny = normals[i * 3 + 1];
+          const nz = normals[i * 3 + 2];
+
+          if (posToNormal.has(key)) {
+              const existing = posToNormal.get(key);
+              // Si la posición es la misma pero la normal es diferente, hay arista dura
+              const diff = Math.abs(existing[0] - nx) + 
+                          Math.abs(existing[1] - ny) + 
+                          Math.abs(existing[2] - nz);
+              
+              if (diff > EPSILON) return true; 
+          } else {
+              posToNormal.set(key, [nx, ny, nz]);
+          }
+      }
+      return false;
   }
 
   this.resources = null;
@@ -1189,6 +1402,8 @@ function parseLib(textLib) {
       loadFileObj : loadFileObj,
       parseOBJFile : parseOBJFile,
       createBuffer : createBuffer,
+      createVertexBuffer : createVertexBuffer,
+      auditStencilBuffer : auditStencilBuffer,
 
       setResource : setResource,
       getResource : getResource,
@@ -1207,9 +1422,14 @@ function parseLib(textLib) {
       //Functions
       rgbToHex : rgbToHex,
       hexToRgb : hexToRgb,
+      color32BitsToColor8bits : color32BitsToColor8bits,
+      color8BitsToColor32bits : color8BitsToColor32bits,
       loadShaderFromFile : loadShaderFromFile,
       //readTextFile : readTextFile
-      pickingRay : pickingRay
+      pickingRay : pickingRay,
+      intersectRaySphere : intersectRaySphere,
+      hasHardEdges : hasHardEdges,
+      calculateSmoothNormals : calculateSmoothNormals
 
       /*TextureTNames : TextureTNames,
       TexturePNames : TexturePNames,

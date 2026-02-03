@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>WebGL2 Stencil Bitmasking - Senior Level</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #050505; color: #eee; font-family: sans-serif; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+        #ui { position: absolute; top: 20px; left: 20px; pointer-events: none; background: rgba(0,0,0,0.8); padding: 20px; border-left: 5px solid #0f0; }
+        .bit { color: #0f0; font-family: monospace; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <h3 style="margin-top:0">LÓGICA DE BITS (BITMASKING)</h3>
+        <p>Esfera: Escribe <span class="bit">0x01</span> (Bit 0)</p>
+        <p>Cubo: Escribe <span class="bit">0x02</span> (Bit 1)</p>
+        <hr style="border:0; border-top:1px solid #333">
+        <p style="color: #ff0">Intersección: Detecta <span class="bit">0x03</span> (Bit 0 AND 1)</p>
+    </div>
+    <canvas id="gl-canvas"></canvas>
+
+    <script id="vs" type="x-shader/x-vertex">#version 300 es
+        layout(location=0) in vec3 a_p;
+        layout(location=1) in vec3 a_n;
+        uniform mat4 u_p, u_v, u_m;
+        void main() { gl_Position = u_p * u_v * u_m * vec4(a_p, 1.0); }
+    </script>
+
+    <script id="fs" type="x-shader/x-fragment">#version 300 es
+        precision mediump float;
+        out vec4 o;
+        uniform vec4 u_c;
+        void main() { o = u_c; }
+    </script>
+
+    <script>
+        "use strict";
+
+        // Minimal Math
+        const mat4 = {
+            identity: () => new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]),
+            perspective: (f, a, n, r) => { let s=1/Math.tan(f/2), d=1/(n-r); return new Float32Array([s/a,0,0,0, 0,s,0,0, 0,0,(r+n)*d,-1, 0,0,2*r*n*d,0]); },
+            translate: (m, v) => { m[12]+=v[0]; m[13]+=v[1]; m[14]+=v[2]; return m; }
+        };
+
+        function createGeo(gl, data) {
+            const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+            const pBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, pBuf); gl.bufferData(gl.ARRAY_BUFFER, data.p, gl.STATIC_DRAW);
+            gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+            const iBuf = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, iBuf); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, data.i, gl.STATIC_DRAW);
+            return vao;
+        }
+
+        async function init() {
+            const canvas = document.getElementById("gl-canvas");
+            const gl = canvas.getContext("webgl2", { stencil: true });
+
+            const prog = gl.createProgram();
+            [gl.VERTEX_SHADER, gl.FRAGMENT_SHADER].forEach((t, i) => {
+                const s = gl.createShader(t);
+                gl.shaderSource(s, document.getElementById(i ? "fs" : "vs").text);
+                gl.compileShader(s); gl.attachShader(prog, s);
+            });
+            gl.linkProgram(prog); gl.useProgram(prog);
+
+            // Geometría simplificada
+            const sphereVAO = createGeo(gl, { 
+                p: new Float32Array([0,20,0, 20,-20,20, -20,-20,20, 0,-20,-20]), // Tetraedro como "esfera" proxy
+                i: new Uint16Array([0,1,2, 0,2,3, 0,3,1, 1,3,2])
+            });
+            const cubeVAO = createGeo(gl, {
+                p: new Float32Array([-20,-20,20, 20,-20,20, 20,20,20, -20,20,20, -20,-20,-20, -20,20,-20, 20,20,-20, 20,-20,-20]),
+                i: new Uint16Array([0,1,2,0,2,3, 4,5,6,4,6,7, 8,9,10,8,10,11])
+            });
+            const quadVAO = gl.createVertexArray(); gl.bindVertexArray(quadVAO);
+            const qB = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, qB); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+            gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+            const uM = gl.getUniformLocation(prog, "u_m");
+            const uC = gl.getUniformLocation(prog, "u_c");
+            gl.uniformMatrix4fv(gl.getUniformLocation(prog, "u_p"), false, mat4.perspective(Math.PI/4, 1, 0.1, 1000));
+            gl.uniformMatrix4fv(gl.getUniformLocation(prog, "u_v"), false, mat4.translate(mat4.identity(), [0, 0, -150]));
+
+            function render(time) {
+                canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+                gl.viewport(0, 0, canvas.width, canvas.height);
+                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+
+                gl.enable(gl.DEPTH_TEST);
+                gl.enable(gl.STENCIL_TEST);
+
+                // PASO 1: Dibujar Esfera y activar Bit 0 (0x01)
+                gl.stencilFunc(gl.ALWAYS, 0x01, 0xFF);
+                gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
+                gl.stencilMask(0x01); // SOLO escribir en el primer bit
+                gl.uniformMatrix4fv(uM, false, mat4.translate(mat4.identity(), [-10 * Math.sin(time*0.001), 0, 0]));
+                gl.uniform4f(uC, 0.8, 0.2, 0.2, 1.0);
+                gl.bindVertexArray(sphereVAO);
+                gl.drawElements(gl.TRIANGLES, 12, gl.UNSIGNED_SHORT, 0);
+
+                // PASO 2: Dibujar Cubo y activar Bit 1 (0x02)
+                gl.stencilFunc(gl.ALWAYS, 0x02, 0xFF);
+                gl.stencilMask(0x02); // SOLO escribir en el segundo bit
+                gl.uniformMatrix4fv(uM, false, mat4.translate(mat4.identity(), [10 * Math.sin(time*0.001), 0, 0]));
+                gl.uniform4f(uC, 0.2, 0.2, 0.8, 1.0);
+                gl.bindVertexArray(cubeVAO);
+                gl.drawElements(gl.TRIANGLES, 18, gl.UNSIGNED_SHORT, 0);
+
+                // PASO 3: DEBUG INTERSECCIÓN (Visualizar píxeles donde Bit 0 Y Bit 1 están activos)
+                gl.disable(gl.DEPTH_TEST);
+                gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+                gl.bindVertexArray(quadVAO);
+                gl.stencilMask(0x00);
+
+                // Si (valor_stencil & 0x03) == 0x03, entonces hay intersección
+                gl.stencilFunc(gl.EQUAL, 0x03, 0x03); 
+                gl.uniform4f(uC, 1.0, 1.0, 0.0, 0.8); // Amarillo brillante para la intersección
+                gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+                gl.disable(gl.BLEND);
+                requestAnimationFrame(render);
+            }
+            requestAnimationFrame(render);
+        }
+        init();
+    </script>
+</body>
+</html>

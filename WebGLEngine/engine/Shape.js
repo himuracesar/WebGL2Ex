@@ -22,7 +22,7 @@ class Shape {
      * @param {JSON object} descriptor Descriptor of the cube.
      * @returns {StaticMesh} Cube with vertex format { position: 3, texture coords: 2, normal: 3 }
      */
-    CreateCube(descriptor){
+    createCube(descriptor){
 		var w2 = 0.5 * descriptor.width;
 		var h2 = 0.5 * descriptor.height;
 		var d2 = 0.5 * descriptor.depth;
@@ -79,6 +79,12 @@ class Shape {
         let vertexFormat = { "in_position" : 3, "in_texcoord" : 2, "in_normal" : 3 };
         var mesh = webGLengine.createMesh(gl, _vertices, indices, vertexFormat);
 
+        //Calculate smooth normals for outline rendering
+        var smoothNormals = webGLengine.calculateSmoothNormals(_vertices, indices);
+
+        var smoothNormalBuffer = webGLengine.createVertexBuffer(smoothNormals);
+        mesh.submeshes[0].setSmoothNormalBuffer(smoothNormalBuffer);
+
         return mesh;
     }
 
@@ -91,7 +97,7 @@ class Shape {
      * @param {JSON object} descriptor Descriptor of the sphere.
      * @returns {StaticMesh} Sphere with vertex format { position: 3, texture coords: 2, normal: 3 }
      */
-    CreateSphere(descriptor){
+    createSphere(descriptor){
         //var numVerts = (descriptor.stacks - 1) * (descriptor.slices + 1) + 2;
 
         var _vertices = [];
@@ -207,13 +213,15 @@ class Shape {
             _indices.push(baseIndex + i);
             _indices.push(baseIndex + i + 1);
         }
-    
-        var numindices = _indices.length;
 
         var indices = new Uint16Array(_indices);
 
         let vertexFormat = { "in_position" : 3, "in_texcoord" : 2, "in_normal" : 3 };
         var mesh = webGLengine.createMesh(gl, vertices, indices, vertexFormat);
+
+        if(descriptor.boundingVolumeType === BoundingVolumeEnums.Type.Sphere){
+            mesh.submeshes[0].setBoundingVolume(new BoundingSphere({ position: [0.0, 0.0, 0.0], radio: descriptor.radio }));
+        } 
 
         return mesh;
     }
@@ -229,7 +237,7 @@ class Shape {
      * @param {JSON object} descriptor Descriptor of the grid
      * @returns {StaticMesh} Grid with vertex format { position: 3, texture coords: 2, normal: 3 }
      */
-    CreateGrid(descriptor){
+    createGrid(descriptor){
         //var numVertices = descriptor.numVertRows * descriptor.numVertCols;
         var numCellRows = descriptor.numVertRows - 1;
         var numCellCols = descriptor.numVertCols - 1;
@@ -263,10 +271,6 @@ class Shape {
 
         var numCellRows = descriptor.numVertRows - 1;
 		var numCellCols = descriptor.numVertCols - 1;
-
-		var numTris = numCellRows * numCellCols * 2;
-
-		var numIndices = numTris * 3;
 
 		var _indices = [];
 
@@ -309,7 +313,7 @@ class Shape {
      * @param {JSON object} descriptor Descriptor of the cylinder
      * @returns {StaticMesh} Cylinder with vertex format { position: 3, texture coords: 2, normal: 3 }
      */
-    CreateCylinder(descriptor){
+    createCylinder(descriptor){
         //
         // Build Stacks.
         // 
@@ -319,8 +323,6 @@ class Shape {
         var radioStep = (descriptor.topRadio - descriptor.bottomRadio) / descriptor.stacks;
 
         var ringCount = descriptor.stacks + 1;
-
-        var numVerts = ringCount * (descriptor.slices + 1) + (descriptor.slices + 2) * 2;
 
         var numVertices = 0;
 
@@ -427,6 +429,12 @@ class Shape {
 
         let vertexFormat = { "in_position" : 3, "in_texcoord" : 2, "in_normal" : 3 };
         var mesh = webGLengine.createMesh(gl, vertices, indices, vertexFormat);
+
+        //Calculate smooth normals for outline rendering
+        var smoothNormals = webGLengine.calculateSmoothNormals(_vertices, indices);
+
+        var smoothNormalBuffer = webGLengine.createVertexBuffer(smoothNormals);
+        mesh.submeshes[0].setSmoothNormalBuffer(smoothNormalBuffer);
 
         return mesh;
     }

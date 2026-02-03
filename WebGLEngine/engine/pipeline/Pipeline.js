@@ -13,6 +13,8 @@ class Pipeline {
         this.program = webGLengine.createProgram(gl, this.vertexShader, this.fragmentShader);
 
         this.vertexFormat = vertexFormat;
+
+        this.name = "";
     }
 
     /**
@@ -59,5 +61,61 @@ class Pipeline {
      */
     unuse(){
         gl.useProgram(null);
+    }
+
+    /**
+     * Set a uniform sampler in the shader.
+     * @param {string} name Name of the uniform in the shader.
+     * @param {int} value Value to pass to shader.
+     */
+    setUniformSampler(name, value) {
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, value);
+        gl.uniform1i(this.getUniformLocation(name), 1);
+    }
+
+    /**
+     * Set a uniform vector4 in the shader.
+     * @param {string} name Name of the uniform in the shader.
+     * @param {Vector4} value Value to pass to shader.
+     */
+    setUniformVector4(name, value){
+        gl.uniform4fv(this.getUniformLocation(name), value);
+    }
+
+    /**
+     * Set a uniform vector3 in the shader.
+     * @param {string} name Name of the uniform in the shader.
+     * @param {Vector3} value Value to pass to shader.
+     */
+    setUniformVector3(name, value){
+        gl.uniform3fv(this.getUniformLocation(name), value);
+    }
+
+    /**
+     * Set a uniform matrix4x4 in the shader.
+     * @param {string} uniformName Name of the uniform in the shader.
+     * @param {Matrix4x4} matrix Value to pass to shader.
+     */
+    setUniformMatrix4x4(uniformName, matrix){
+        gl.uniformMatrix4fv(this.getUniformLocation(uniformName), false, matrix);
+    }
+
+    /**
+     * Set a uniform float in the shader.
+     * @param {string} name Name of the uniform in the shader.
+     * @param {float} value Value to pass to shader.
+     */
+    setUniformFloat(name, value){
+        gl.uniform1f(this.getUniformLocation(name), value);
+    }
+
+    /**
+     * Set a uniform int in the shader.
+     * @param {string} name Name of the uniform in the shader.
+     * @param {int} value Value to pass to shader.
+     */
+    setUniformInt(name, value){
+        gl.uniform1i(this.getUniformLocation(name), value);
     }
 }

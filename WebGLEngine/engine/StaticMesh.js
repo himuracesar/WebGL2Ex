@@ -9,7 +9,6 @@ class StaticMesh {
      * Create a Static Mesh
      */
     constructor(){
-        //gl = gl;
         this.submeshes = [];
         this.vao = gl.createVertexArray();
         this.vertexFormat = {};
@@ -29,7 +28,7 @@ class StaticMesh {
             0.0, 1.0, 0.0, 0.0,
             0.0, 0.0, 1.0, 0.0,
             0.0, 0.0, 0.0, 1.0
-        ]
+        ];
     }
 
     /**
@@ -80,7 +79,7 @@ class StaticMesh {
 
                 offset += value;
             }
-
+            
             if(this.submeshes[i].materialIndex > -1){
                 var bufferBase = this.materials[this.submeshes[i].materialIndex].getBuffer(pipeline, "u_material");
 
@@ -107,6 +106,19 @@ class StaticMesh {
                     }
                 }
             }
+
+            const smoothNormalLoc = pipeline.getAttributeLocation("in_smoothNormal");
+
+            if (smoothNormalLoc !== undefined && this.submeshes[i].getSmoothNormalBuffer() != null) {
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.submeshes[i].getSmoothNormalBuffer());
+                gl.vertexAttribPointer(smoothNormalLoc, 3, gl.FLOAT, false, 0, 0);
+                gl.enableVertexAttribArray(smoothNormalLoc);
+            }
+
+            const hasHardEdgesLoc = pipeline.getUniformLocation("u_hasHardEdges");
+            if (hasHardEdgesLoc !== undefined) {
+                pipeline.setUniformInt("u_hasHardEdges", this.submeshes[i].hasHardEdges() ? 1 : 0);
+            }
     
             if(this.submeshes[i].getNumIndices() > 0){
                 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.submeshes[i].getIndexBuffer());
@@ -129,6 +141,20 @@ class StaticMesh {
         //gl.useProgram(null);
 
         //pipeline.unuse();
+    }
+
+    /**
+     * Translate the mesh and its submeshes.
+     * @param {Vector3} transform Displacement vector.
+     */
+    translate(transform){
+        this.position[0] += transform[0];
+        this.position[1] += transform[1];
+        this.position[2] += transform[2];
+
+        for(var i = 0; i < this.submeshes.length; i++){
+            this.submeshes[i].translate(transform);
+        }
     }
 
     /**
@@ -163,6 +189,8 @@ class StaticMesh {
      * @param {array} position position of the mesh
      */
     setPosition(position){
+        var  deltaPos = m4.subtractVectors(position, this.position);
+        this.translate(deltaPos);
         this.position = position;
     }
 

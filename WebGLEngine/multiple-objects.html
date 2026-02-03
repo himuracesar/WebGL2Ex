@@ -154,7 +154,7 @@
             material.setHasTexture(true);
             material.setDiffuseTextureIndex(0);
 
-            tex = webGLengine.createTexture(gl, "textures/WebGL_Logo.png");
+            tex = webGLengine.createTextureFromFile(gl, "textures/WebGL_Logo.png", false);
 
             cube_mesh.setMaterial(0, material);
             cube_mesh.getSubmesh(0).materialIndex = 0;

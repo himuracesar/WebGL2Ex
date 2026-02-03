@@ -207,7 +207,7 @@
             descriptor.slices = 20;
             descriptor.stacks = 20;
 
-            sphereProcedural = shape.CreateSphere(descriptor);
+            sphereProcedural = shape.createSphere(descriptor);
             sphereProcedural.setMaterial(0, m_yellow);
             sphereProcedural.getSubmesh(0).materialIndex = 0;
 
@@ -216,7 +216,7 @@
             descriptor.height = 40.0;
             descriptor.depth = 40.0;
 
-            cubeProcedural = shape.CreateCube(descriptor);
+            cubeProcedural = shape.createCube(descriptor);
             cubeProcedural.setMaterial(0, m_yellow);
             cubeProcedural.getSubmesh(0).materialIndex = 0;
 
@@ -227,7 +227,7 @@
             descriptor.position = [0.0, 0.0, 0.0];
             descriptor.texScale = 1.0;
             
-            grid = shape.CreateGrid(descriptor);
+            grid = shape.createGrid(descriptor);
             grid.setMaterial(0, m_gray);
             grid.getSubmesh(0).materialIndex = 0;
 
@@ -238,7 +238,7 @@
             descriptor.topRadio = 20.0;
             descriptor.height = 100.0;
 
-            cylinder = shape.CreateCylinder(descriptor);
+            cylinder = shape.createCylinder(descriptor);
             cylinder.setMaterial(0, m_yellow);
             cylinder.getSubmesh(0).materialIndex = 0;
 
@@ -249,7 +249,7 @@
             descriptor.topRadio = 1.0;
             descriptor.height = 120.0;
 
-            cone = shape.CreateCylinder(descriptor);
+            cone = shape.createCylinder(descriptor);
             cone.setMaterial(0, m_yellow);
             cone.getSubmesh(0).materialIndex = 0;
 

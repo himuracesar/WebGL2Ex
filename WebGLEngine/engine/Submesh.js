@@ -11,6 +11,23 @@ class Submesh {
         this.numVertices = 0;
         this.materialIndex = -1;
         this.bounding = null;
+        this.smoothNormalBuffer = null;
+        this._hasHardEdges = false;
+    }
+
+    /**
+     * Translate the mesh and its submeshes.
+     * @param {Vector3} transform Displacement vector.
+     */
+    translate(transform){
+        if(this.bounding != null){
+            var position = this.bounding.getPosition();
+            this.bounding.setPosition([
+                position[0] + transform[0],
+                position[1] + transform[1],
+                position[2] + transform[2]
+            ]);
+        }
     }
 
     /**
@@ -47,7 +64,7 @@ class Submesh {
 
     /**
      * Get the number of indices
-     * @returns number of indices
+     * @returns {int} number of indices
      */
     getNumIndices(){
         return this.numIndices;
@@ -55,7 +72,7 @@ class Submesh {
 
     /**
      * Get the number of vertices
-     * @returns number of vertices
+     * @returns {int} number of vertices
      */
     getNumVertices(){
         return this.numVertices;
@@ -99,5 +116,38 @@ class Submesh {
      */
     getBoundingVolume(){
         return this.bounding;
+    }
+
+    /**
+     * Set the buffer with smooth normals.
+     * @param {WebGLBuffer} buffer Buffer with smooth normals.
+     */
+    setSmoothNormalBuffer(buffer) {
+        this.smoothNormalBuffer = buffer;
+        this._hasHardEdges = true;
+    }
+
+    /**
+     * Get the buffer with smooth normals.
+     * @returns {WebGLBuffer} Buffer with smooth normals.
+     */
+    getSmoothNormalBuffer() {
+        return this.smoothNormalBuffer;
+    }
+
+    /**
+     * Set if the submesh has hard edges.
+     * @param {boolean} hasHardEdges 
+     */
+    setHardEdges(hasHardEdges) {
+        this._hasHardEdges = hasHardEdges;
+    }
+
+    /**
+     * Get if the submesh has hard edges.
+     * @returns {boolean} hasHardEdges.
+     */
+    hasHardEdges() {
+        return this._hasHardEdges;
     }
 }

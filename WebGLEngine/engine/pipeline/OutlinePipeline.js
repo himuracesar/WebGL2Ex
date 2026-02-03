@@ -1,5 +1,6 @@
 /**
- * Cook Torrance shading - PBR
+ * Outline pipeline for rendering meshes with an outline effect using vertex shader extrusion.
+ * This pipeline expands the vertices along their normals to create a uniform outline.
  * @author César Himura
  * @version 1.0
  */
@@ -7,42 +8,50 @@ class OutlinePipeline extends Pipeline {
 
     constructor(gl){
         var vertexShaderSrc = `#version 300 es
-            precision mediump float;
-            //precision highp float;
+            //precision mediump float;
+            precision highp float;
 
             layout(location=0) in vec3 in_position;
             layout(location=1) in vec2 in_texcoord;
             layout(location=2) in vec3 in_normal;
+            layout(location=3) in vec3 in_smoothNormal;
 
             uniform mat4 u_mProj;
             uniform mat4 u_mView;
             uniform mat4 u_mModel;
+            uniform float u_thickness;
+            uniform int u_hasHardEdges;
 
-            /*out vec3 o_positionWV;
-            out vec3 o_normalWV;
-            out vec2 o_texcoord;*/
+            out vec3 o_normal;
+            out vec2 o_texcoord;
 
-            void main(){
-                //float outlineThickness = 20.0f;
+            void main() {
+                vec3 expandedPos = in_position;
 
-                //vec3 expandedPos = in_position + in_normal * outlineThickness;
-                //gl_Position = u_mProj * u_mView * u_mModel * vec4(expandedPos, 1.0);
-                gl_Position = u_mProj * u_mView * u_mModel * vec4(in_position, 1.0);
+                // Expansión a lo largo de la normal en el Vertex Shader
+                // para crear el efecto de borde uniforme
+                if (u_hasHardEdges == 1) 
+                    expandedPos = in_position + (in_smoothNormal * u_thickness);
+                else
+                    expandedPos = in_position + (in_normal * u_thickness);
+
+                gl_Position = u_mProj * u_mView * u_mModel * vec4(expandedPos, 1.0);
+
+                o_normal = in_normal;
+                o_texcoord = in_texcoord;
             }
         `;
         
         var fragmentShaderSrc = `#version 300 es
-            precision mediump float;
-            //precision highp float;
+            precision highp float;
 
-            /*in vec3 o_positionWV;
-            in vec3 o_normalWV;
-            in vec2 o_texcoord;*/
+            in vec3 o_normal;
+            in vec2 o_texcoord;
 
             out vec4 color;
 
-            void main(){
-                color = vec4(0.0f, 1.0f, 0.0f, 1.0f);
+            void main() {
+                color = vec4(1.0, 0.5, 0.0, 1.0); // Borde naranja brillante
             }
         `;
     
@@ -50,16 +59,19 @@ class OutlinePipeline extends Pipeline {
         
         super(gl, vertexShaderSrc, fragmentShaderSrc, vertexFormat);
 
+        this.name = "OutlinePipeline";
+
         let attributes = new Map();
        
         var in_position = webGLengine.getAttributeLocation(gl, this.getProgram(), "in_position");
         var in_texcoord = webGLengine.getAttributeLocation(gl, this.getProgram(), "in_texcoord");
         var in_normal = webGLengine.getAttributeLocation(gl, this.getProgram(), "in_normal");
+        var in_smoothNormal = webGLengine.getAttributeLocation(gl, this.getProgram(), "in_smoothNormal");
 
         attributes.set("in_position", in_position);
         attributes.set("in_texcoord", in_texcoord);
         attributes.set("in_normal", in_normal);
-
+        attributes.set("in_smoothNormal", in_smoothNormal);
         this.attributes = attributes;
 
         let uniforms = new Map();
@@ -67,12 +79,14 @@ class OutlinePipeline extends Pipeline {
         var u_mProj = gl.getUniformLocation(this.getProgram(), "u_mProj");
         var u_mView = gl.getUniformLocation(this.getProgram(), "u_mView");
         var u_mModel = gl.getUniformLocation(this.getProgram(), "u_mModel");
-        //var u_camera_position = gl.getUniformLocation(this.getProgram(), "u_camera_position");
+        var u_thickness = gl.getUniformLocation(this.getProgram(), "u_thickness");
+        var hasHardEdges = gl.getUniformLocation(this.getProgram(), "u_hasHardEdges");
 
         uniforms.set("u_mProj", u_mProj);
         uniforms.set("u_mView", u_mView);
         uniforms.set("u_mModel", u_mModel);
-        //uniforms.set("u_camera_position", u_camera_position);
+        uniforms.set("u_thickness", u_thickness);
+        uniforms.set("u_hasHardEdges", hasHardEdges);
 
         this.uniforms = uniforms;
     }

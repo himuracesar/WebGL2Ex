@@ -124,6 +124,9 @@ class CookTorranceShadowsPipeline extends Pipeline {
             uniform mat4 u_mView;
             uniform mat4 u_mModel;
             uniform vec3 u_camera_position;
+            uniform int u_shadowsEnabled;
+            uniform float u_shadowBias;
+            uniform float u_shadowIntensity;
 
             layout(std140) uniform u_material {
                 Material mat;
@@ -352,7 +355,7 @@ class CookTorranceShadowsPipeline extends Pipeline {
                 vec3 lightDir = normalize(lightPos - o_positionWV);
 
                 //float bias = max(0.05f * (1.0f - dot(normalize(o_normalWV), lightDir)), 0.005f);
-                float bias = 0.005f;
+                //float bias = 0.005f; //With more bias the petering effect decreases
                 // check whether current frag pos is in shadow
                 //shadow = (currentDepth - bias > closestDepth) ? 1.0f : 0.0f;
 
@@ -364,7 +367,7 @@ class CookTorranceShadowsPipeline extends Pipeline {
                     for(int y = -1; y <= 1; ++y)
                     {
                         float pcfDepth = texture(u_shadowMap, projCoords.xy + vec2(x, y) * texelSize).r; 
-                        shadow += currentDepth - bias > pcfDepth  ? 1.0f : 0.0f;        
+                        shadow += currentDepth - u_shadowBias > pcfDepth  ? 1.0f : 0.0f;        
                     }    
                 }
                 shadow /= 9.0f;
@@ -407,9 +410,13 @@ class CookTorranceShadowsPipeline extends Pipeline {
                     lighting.ambient += l.ambient;
                 }
 
-                float shadow = ShadowCalculation(o_posShadow);
-                color = (1.0f - shadow) * (lighting.diffuse + lighting.specular) + lighting.ambient;
-                //color = vec4((1.0f - shadow), 0.0f, 0.0f, 1.0);
+                if(u_shadowsEnabled == 1){
+                    float shadow = ShadowCalculation(o_posShadow);
+                    color = lighting.diffuse + lighting.specular + (u_shadowIntensity - shadow) *  lighting.ambient;
+                    //color = (2.0f - shadow) * (lighting.diffuse + lighting.specular) + lighting.ambient;
+                } else {
+                    color = lighting.diffuse + lighting.specular + lighting.ambient;
+                }
 
                 if(mat.hasTexture > 0)
                     color = texture(u_sampler0, vec2(o_texcoord.x, o_texcoord.y)) * color;
@@ -432,7 +439,7 @@ class CookTorranceShadowsPipeline extends Pipeline {
 
         this.attributes = attributes;
 
-        let uniforms = new Map();
+        this.uniforms = new Map();
 
         var u_mProj = gl.getUniformLocation(this.getProgram(), "u_mProj");
         var u_mView = gl.getUniformLocation(this.getProgram(), "u_mView");
@@ -442,17 +449,23 @@ class CookTorranceShadowsPipeline extends Pipeline {
         var u_shadowMap = gl.getUniformLocation(this.getProgram(), "u_shadowMap");
         var u_mLightView = gl.getUniformLocation(this.getProgram(), "u_mLightView");
         var u_mLightProjection = gl.getUniformLocation(this.getProgram(), "u_mLightProjection");
+        var u_shadowsEnabled = gl.getUniformLocation(this.getProgram(), "u_shadowsEnabled");
+        var u_shadowBias = gl.getUniformLocation(this.getProgram(), "u_shadowBias");
+        var u_shadowIntensity = gl.getUniformLocation(this.getProgram(), "u_shadowIntensity");
 
-        uniforms.set("u_mProj", u_mProj);
-        uniforms.set("u_mView", u_mView);
-        uniforms.set("u_mModel", u_mModel);
-        uniforms.set("u_sampler0", u_sampler0);
-        uniforms.set("u_camera_position", u_camera_position);
-        uniforms.set("u_shadowMap", u_shadowMap);
-        uniforms.set("u_mLightView", u_mLightView);
-        uniforms.set("u_mLightProjection", u_mLightProjection);
+        this.uniforms.set("u_mProj", u_mProj);
+        this.uniforms.set("u_mView", u_mView);
+        this.uniforms.set("u_mModel", u_mModel);
+        this.uniforms.set("u_sampler0", u_sampler0);
+        this.uniforms.set("u_camera_position", u_camera_position);
+        this.uniforms.set("u_shadowMap", u_shadowMap);
+        this.uniforms.set("u_mLightView", u_mLightView);
+        this.uniforms.set("u_mLightProjection", u_mLightProjection);
+        this.uniforms.set("u_shadowsEnabled", u_shadowsEnabled);
+        this.uniforms.set("u_shadowBias", u_shadowBias);
+        this.uniforms.set("u_shadowIntensity", u_shadowIntensity);
 
-        this.uniforms = uniforms;
+        //this.uniforms = uniforms;
     }
 
     /**
@@ -504,7 +517,7 @@ class CookTorranceShadowsPipeline extends Pipeline {
     }
 
     /**
-     * Set a light in the shader
+     * Set a light in the shader.
      * @param {DirectionalLight | PointLight | SpotLight} light 
      * @param {string} uniformvar Name of the uniform variable
      */
@@ -512,17 +525,50 @@ class CookTorranceShadowsPipeline extends Pipeline {
         gl.bindBufferBase(gl.UNIFORM_BUFFER, light.getBindingPoint(), light.getBuffer(this, uniformvar));
     }
 
+    /**
+     * Set a uniform sampler in the shader.
+     * @param {string} name Name of the uniform in the shader.
+     * @param {int} value Value to pass to shader.
+     */
     setUniformSampler(name, value) {
         gl.activeTexture(gl.TEXTURE1);
         gl.bindTexture(gl.TEXTURE_2D, value);
         gl.uniform1i(this.getUniformLocation(name), 1);
     }
 
+    /**
+     * Set a uniform vector4 in the shader.
+     * @param {string} name Name of the uniform in the shader.
+     * @param {Vector4} value Value to pass to shader.
+     */
     setUniformVector4(name, value){
         gl.uniform4fv(this.getUniformLocation(name), value);
     }
 
+    /**
+     * Set a uniform matrix4x4 in the shader.
+     * @param {string} uniformName Name of the uniform in the shader.
+     * @param {Matrix4x4} matrix Value to pass to shader.
+     */
     setUniformMatrix4x4(uniformName, matrix){
         gl.uniformMatrix4fv(this.getUniformLocation(uniformName), false, matrix);
+    }
+
+    /**
+     * Set a uniform float in the shader.
+     * @param {string} name Name of the uniform in the shader.
+     * @param {float} value Value to pass to shader.
+     */
+    setUniformFloat(name, value){
+        gl.uniform1f(this.getUniformLocation(name), value);
+    }
+
+    /**
+     * Set a uniform int in the shader.
+     * @param {string} name Name of the uniform in the shader.
+     * @param {int} value Value to pass to shader.
+     */
+    setUniformInt(name, value){
+        gl.uniform1i(this.getUniformLocation(name), value);
     }
 }

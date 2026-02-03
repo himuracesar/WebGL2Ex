@@ -38,6 +38,25 @@ class RenderTarget {
             // Indicar a Webgl que no necesitamos una salida de color, solo profundidad
             gl.drawBuffers([gl.NONE]);
             gl.readBuffer(gl.NONE);
+        } else if(use == RenderTargetEnums.Use.StencilBuffer){
+            this.framebuffer = gl.createFramebuffer();
+            gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
+
+            // Textura donde "hornearemos" el stencil
+            const colorTex = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, colorTex);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, colorTex, 0);
+
+            // Renderbuffer esencial para recibir el blit del stencil
+            const dsBuffer = gl.createRenderbuffer();
+            gl.bindRenderbuffer(gl.RENDERBUFFER, dsBuffer);
+            gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH24_STENCIL8, width, height);
+            gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, dsBuffer);
+
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         }
 
         //this.addTexture(null);
@@ -119,18 +138,48 @@ class RenderTarget {
         return this.framebuffer;
     }
 
+    /**
+     * Get the width of the render target.
+     * @returns {int} Width of the render target.
+     */
     getWidth(){
         return this.width;
     }
 
+    /**
+     * Get the height of the render target.
+     * @returns {int} Height of the render target.
+     */
     getHeight(){
         return this.height;
     }
 
+    /**
+     * Set the width of the render target.
+     * @param {int} width Width of the render target.
+     */
+    setWidth(width){
+        this.width = width;
+    }
+
+    /**
+     * Set the height of the render target.
+     * @param {int} height Height of the render target.
+     */
+    setHeight(height){
+        this.height = height;
+    }
+
+    /**
+     * Bind the render target to draw in it.
+     */
     bind(){
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
     }
 
+    /**
+     * The render target is not more active to draw.
+     */
     unbind(){
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }

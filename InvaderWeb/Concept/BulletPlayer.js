@@ -23,7 +23,7 @@ class BulletPlayer extends Actor {
         descriptor.slices = 6;
         descriptor.stacks = 6;
 
-        this.mesh = shape.CreateSphere(descriptor);
+        this.mesh = shape.createSphere(descriptor);
         this.position = [0.0, 0.0, 0.0];
         this.speed = 20.0;
         this.direction = [0.0, 0.0, 0.0];
@@ -32,7 +32,7 @@ class BulletPlayer extends Actor {
         this.id = "BP" + this.birthTime;
         this.life = 1.0;
 
-        this.collider = new SphereBounding({ radio: 8.0, position: this.position });
+        this.collider = new BoundingSphere({ radio: 8.0, position: this.position });
 
         this.status = BulletPlayer.Status.LIVE;
     }

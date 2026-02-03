@@ -4,7 +4,7 @@
  * @author César Himura
  * @version 1.0
  */
-class SphereBounding extends BoundingVolume {
+class BoundingSphere extends BoundingVolume {
     /**
      * Create a sphere bounding according the configuration
      *      - radio = sphere's radio. if the radio is 0 this is calculate automatically with vmin and vmax
@@ -20,7 +20,7 @@ class SphereBounding extends BoundingVolume {
         super.setPosition(config.position || [0.0, 0.0, 0.0]);
 
         if(this.radio == 0.0)
-            this.ComputeBoundingSphere();
+            this.computeBoundingSphere();
 
         //Only for debug
         this.mesh = null;
@@ -29,7 +29,7 @@ class SphereBounding extends BoundingVolume {
     /**
      * Compute the sphere bounding from minimum and maximum vectors
      */
-    ComputeBoundingSphere(){
+    computeBoundingSphere(){
         var vmin = super.getVectorMin();
         var vmax = super.getVectorMax();
         
@@ -85,7 +85,7 @@ class SphereBounding extends BoundingVolume {
             descriptor.slices = 8;
             descriptor.stacks = 8;
 
-            this.mesh = shape.CreateSphere(descriptor);
+            this.mesh = shape.createSphere(descriptor);
         }
 
         simplePipeline.use();

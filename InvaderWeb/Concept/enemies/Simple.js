@@ -13,7 +13,7 @@ class Simple extends Actor{
         this.fireRate = 350.0; //milliseconds
         this.nextFire = 0.0;
 
-        this.collider = new SphereBounding({ radio: 20.0, position: this.position });
+        this.collider = new BoundingSphere({ radio: 20.0, position: this.position });
 
         this.id = "Enemy-Simple";
         this.inDamage = false;
