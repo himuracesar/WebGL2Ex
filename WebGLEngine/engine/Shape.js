@@ -15,11 +15,11 @@ class Shape {
 
     /**
      * Create a cube with the values in the descriptor
-     *      Values to create a cube:
-     *          - width {float} = Width (x).
-     *          - height {float} = Height (y).
-     *          - depth {float} = Depth (z).
      * @param {JSON object} descriptor Descriptor of the cube.
+     * @param {float} descriptor.width Width of the cube (x).
+     * @param {float} descriptor.height Height of the cube (y).
+     * @param {float} descriptor.depth Depth of the cube (z).
+     * @param {BoundingVolumeEnums.Type} descriptor.boundingVolumeType Type of bounding volume to create for the cube (Box or Sphere).
      * @returns {StaticMesh} Cube with vertex format { position: 3, texture coords: 2, normal: 3 }
      */
     createCube(descriptor){
@@ -85,16 +85,19 @@ class Shape {
         var smoothNormalBuffer = webGLengine.createVertexBuffer(smoothNormals);
         mesh.submeshes[0].setSmoothNormalBuffer(smoothNormalBuffer);
 
+        if(descriptor.boundingVolumeType === BoundingVolumeEnums.Type.Box){
+            mesh.submeshes[0].setBoundingVolume(new BoundingBox({ vmin: [-w2, -h2, -d2], vmax: [w2, h2, d2] }));
+        } 
+
         return mesh;
     }
 
     /**
      * Create a sphere with the values in the descriptor
-     *      Values to create a sphere
-     *          - radio {float} = Radio.
-     *          - stacks {float} = Divisions in x.
-     *          - slices {float} = Divisions in z.
      * @param {JSON object} descriptor Descriptor of the sphere.
+     * @param {float} descriptor.radio Radio of the sphere.
+     * @param {int} descriptor.stacks Number of divisions in x.
+     * @param {int} descriptor.slices Number of divisions in z.
      * @returns {StaticMesh} Sphere with vertex format { position: 3, texture coords: 2, normal: 3 }
      */
     createSphere(descriptor){
@@ -305,15 +308,18 @@ class Shape {
     /**
      * Builds a cylinder mesh.
      *      Values to create a cylinder
-     *          - slices {int} = Division of both caps
-     *          - stacks {int} = Division of body
-     *          - bottomRadio {float} = Bottom radio
-     *          - topRadio {float} = Top radio
-     *          - height {float} = Height
-     * @param {JSON object} descriptor Descriptor of the cylinder
+     * @param {JSON object} descriptor Descriptor of the cylinder.
+     * @param {int} descriptor.slices Division of both caps.
+     * @param {int} descriptor.stacks Division of body.
+     * @param {float} descriptor.bottomRadio Bottom radio.
+     * @param {float} descriptor.topRadio Top radio.
+     * @param {float} descriptor.height Height.
      * @returns {StaticMesh} Cylinder with vertex format { position: 3, texture coords: 2, normal: 3 }
      */
     createCylinder(descriptor){
+        var vmin = [Infinity, Infinity, Infinity];
+        var vmax = [-Infinity, -Infinity, -Infinity];
+
         //
         // Build Stacks.
         // 
@@ -364,6 +370,9 @@ class Shape {
                 _vertices.push(r * c);
                 _vertices.push(y);
                 _vertices.push(r * s);
+
+                vmin = webGLengine.Vector3Min(vmin, [r * c, y, r * s]);
+                vmax = webGLengine.Vector3Max(vmax, [r * c, y, r * s]);
 
                 // This is unit length.
                 var T = [-s, 0.0, c];
@@ -435,6 +444,10 @@ class Shape {
 
         var smoothNormalBuffer = webGLengine.createVertexBuffer(smoothNormals);
         mesh.submeshes[0].setSmoothNormalBuffer(smoothNormalBuffer);
+
+        if(descriptor.boundingVolumeType === BoundingVolumeEnums.Type.Box){
+            mesh.submeshes[0].setBoundingVolume(new BoundingBox({ vmin: vmin, vmax: vmax }));
+        }
 
         return mesh;
     }

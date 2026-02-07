@@ -4,19 +4,12 @@
  * @version 1.0
  */
 class BoundingVolume {
-    /**
-     * Types
-     */
-    Type = Object.freeze({
-        None : 0,
-        Sphere : 1
-    });
 
     constructor(vmin, vmax){
         this.vmin = vmin;
         this.vmax = vmax;
         this.position = [0.0, 0.0, 0.0];
-        this.type = this.Type.None;
+        this.type = BoundingVolumeEnums.Type.None;
     }
 
     /**

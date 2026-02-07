@@ -331,4 +331,32 @@ class StaticMesh {
     rotationAxis(m){
         this.axisRotation = m;
     }
+
+    /**
+     * Get the rotation in Y axis.
+     * @returns {float} Rotation in Y axis.
+     */
+    getRotationInY(){
+        return this.yRotation;
+    }
+     
+    /**
+     * Get the rotation in X axis.
+     * @returns {float} Rotation in X axis.
+     */
+    getRotationInX(){
+        return this.xRotation;
+    }
+
+    /**
+     * Get the rotation in Z axis.
+     * @returns {float} Rotation in Z axis.
+     */
+    getRotationInY(){
+        return this.yRotation;
+    }
+
+    getRotationInZ(){
+        return this.zRotation;
+    }
 }

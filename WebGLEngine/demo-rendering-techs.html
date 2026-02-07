@@ -10,6 +10,7 @@
     <script type="text/javascript" src="engine/Ray.js"></script>
     <script type="text/javascript" src="engine/bounding/BoundingVolume.js"></script>
     <script type="text/javascript" src="engine/bounding/BoundingSphere.js"></script>
+    <script type="text/javascript" src="engine/bounding/BoundingBox.js"></script>
     <script type="text/javascript" src="engine/pipeline/Pipeline.js"></script>
     <script type="text/javascript" src="engine/pipeline/SimplePipeline.js"></script>
     <script type="text/javascript" src="engine/pipeline/CookTorrancePipeline.js"></script>
@@ -83,6 +84,7 @@
 
 
         var selectedObject = null;
+        var sceneList = [];
 
         /**
          * Create basic shapes.
@@ -127,11 +129,13 @@
             descriptor.width = 50.0;
             descriptor.height = 50.0;
             descriptor.depth = 50.0;
+            descriptor.boundingVolumeType = BoundingVolumeEnums.Type.Box;
 
             cube = shape.createCube(descriptor);
             cube.setMaterial(0, m_white);
             cube.getSubmesh(0).materialIndex = 0;
             cube.setPosition([0.0, 25.0, 0.0]);
+            cube.rotateY(webGLengine.degreeToRadian(45.0));
 
             descriptor = {};
             descriptor.slices = 10;
@@ -139,6 +143,7 @@
             descriptor.bottomRadio = 20.0;
             descriptor.topRadio = 20.0;
             descriptor.height = 100.0;
+            descriptor.boundingVolumeType = BoundingVolumeEnums.Type.Box;
 
             cylinder = shape.createCylinder(descriptor);
             cylinder.setMaterial(0, m_white);
@@ -151,6 +156,7 @@
             descriptor.bottomRadio = 40.0;
             descriptor.topRadio = 1.0;
             descriptor.height = 120.0;
+            descriptor.boundingVolumeType = BoundingVolumeEnums.Type.Box;
 
             pyramid = shape.createCylinder(descriptor);
             pyramid.setMaterial(0, m_white);
@@ -163,6 +169,7 @@
             descriptor.bottomRadio = 40.0;
             descriptor.topRadio = 1.0;
             descriptor.height = 120.0;
+            descriptor.boundingVolumeType = BoundingVolumeEnums.Type.Box;
 
             cone = shape.createCylinder(descriptor);
             cone.setMaterial(0, m_white);
@@ -247,23 +254,31 @@
 
         function picking(mesh){
             var ray = webGLengine.pickingRay(event.clientX, event.clientY, canvas.width, canvas.height, camera.getViewMatrix(), camera.getProjectionMatrix());
+
+            selectedObject = null;
             
             var intersect = -1;
             for(var i = 0; i < mesh.submeshes.length; i++){
                 var bv = mesh.submeshes[i].getBoundingVolume();
                 if(bv != null){
-                    var intersect = webGLengine.intersectRaySphere(ray, bv);
+                    var intersect = -1;
+
+                    if(bv.getType() == BoundingVolumeEnums.Type.Sphere){
+                        intersect = webGLengine.intersectRaySphere(ray, bv);
+                    } else if(bv.getType() == BoundingVolumeEnums.Type.Box){
+                        bv.computeAxesFromEuler(mesh.getRotationInX(), mesh.getRotationInY(), mesh.getRotationInZ());
+                        intersect = webGLengine.intersectRayOBB(ray, bv);
+                    }
+
                     if(intersect > 0){
-                        console.log("Intersected with mesh -- submesh: " + i);
+                        //console.log("Intersected with mesh -- submesh: " + i);
                         selectedObject = mesh;
-                        break;
+                        return true
                     }
                 }
             }
 
-            if(intersect < 0){
-                selectedObject = null;
-            }
+            return false;
         }
         
         function init(){
@@ -331,6 +346,12 @@
             createMaterials();
             createShapes();
 
+            sceneList.push(sphere);
+            sceneList.push(cube);
+            sceneList.push(cylinder);
+            sceneList.push(pyramid);
+            sceneList.push(cone);
+
             //webGLengine.resizeCanvasToDisplaySize(canvas, 1, false);
 
             //------------- Screen (only for debug) ---------------
@@ -391,7 +412,10 @@
             x = ((x - rect.left) - canvas.width / 2) / (canvas.width / 2);
             y = (canvas.height / 2 - (y - rect.top)) / (canvas.height / 2);
 
-            picking(sphere);
+            for(var i = 0; i < sceneList.length; i++){
+                if(picking(sceneList[i]))
+                    return
+            }
         }
 
         function onMouseMove(event){

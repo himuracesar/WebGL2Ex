@@ -50,7 +50,7 @@ const BoundingVolumeEnums = Object.freeze({
   Type : Object.freeze({
     None : 0,
     Sphere : 1,
-    Cube : 2
+    Box : 2
   })
 });
 
@@ -925,8 +925,8 @@ function parseLib(textLib) {
   /**
    * Create a texture for the configuration passed as argument
    * @param {Object} config It is an array of array. The configuration is:
-   *    - params: [Target's name, param's name, param's value]
-   *    - type: int (for texparamateri) | float (for texparamaterf) 
+   * @param {Array} params: [Target's name, param's name, param's value]
+   * @param {int} type: (for texparamateri) | float (for texparamaterf) 
    * @returns {Texture} A texture ready to use
    */
   function createTexture(config = null) {
@@ -1151,6 +1151,60 @@ function intersectRaySphere(ray, sphere) {
     return t0 < 0 ? (t1 < 0 ? -1 : t1) : t0;
 }
 
+/**
+ * Detect Ray-OBB intersection (cube with rotation).
+ * @param {Ray} ray The ray to test.
+ * @param {BoundingBox} box The oriented bounding box to test. It has the following properties:
+ *                              orientation es una matriz 3x3 o 3 vectores {u, v, w} que representan los ejes locales.
+ */
+function intersectRayOBB(ray, box) {
+    let tMin = -Infinity; //Enter point of the ray in the box. It is a distance.
+    let tMax = Infinity; //Exit point of the ray in the box. It is a distance.
+    const EPSILON = 1e-6;
+
+    // Vector from ray origin to box center. p is displacement vector for this reason the vector must not be normalized.
+    const p = m4.subtractVectors(box.getPosition(), ray.getOrigin());
+
+    let orientation = box.getOrientation();
+
+    // The local axis of the box (unit vectors of directions)
+    const axes = [orientation.u, orientation.v, orientation.w];
+    // The "halfsizes" of the box in each axis (e.g., if the box is 2x2x2, halfSize is 1,1,1)
+    const size = [box.getWidth() / 2.0, box.getHeight() / 2.0, box.getDepth() / 2.0];
+
+    for (let i = 0; i < 3; i++) {
+        const axis = axes[i];
+        
+        // We project the ray direction and the distance onto the current local axis
+        const e = m4.dot(axis, p);
+        const f = m4.dot(axis, ray.getDirection());
+       
+        if (Math.abs(f) > EPSILON) { // If the ray is not perpendicular to the axis
+            let t1 = (e + size[i]) / f;
+            let t2 = (e - size[i]) / f;
+            
+            if (t1 > t2) 
+              [t1, t2] = [t2, t1];
+
+            if (t1 > tMin) 
+              tMin = t1;
+            if (t2 < tMax) 
+              tMax = t2;
+
+            if (tMin > tMax) 
+              return -1; // Early exit failure
+            if (tMax < 0) 
+              return -1; // The box is behind the ray
+        } else {
+            // If the ray is parallel to the axis, the ray origin must be within the box's layers
+            if (-e - size[i] > 0 || -e + size[i] < 0) 
+              return -1;
+        }
+      }
+    
+    return tMin > 0 ? tMin : tMax;
+}
+
   /**
    * Generates a set of averaged normals for the outline effect.
    * @param {Float32Array} positions - Array of positions [x, y, z, ...]
@@ -1240,6 +1294,26 @@ function intersectRaySphere(ray, sphere) {
           }
       }
       return false;
+  }
+
+  /**
+   * Calculate the component-wise minimum of two vectors.
+   * @param {Vector3} a Vector a
+   * @param {Vector3} b Vector b
+   * @returns {Vector3} The component-wise minimum of a and b.
+   */
+  function Vector3Min(a, b){
+    return [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.min(a[2], b[2])];
+  }
+
+  /**
+   * Calculate the component-wise maximum of two vectors.
+   * @param {Vector3} a Vector a
+   * @param {Vector3} b Vector b
+   * @returns {Vector3} The component-wise maximum of a and b.
+   */
+  function Vector3Max(a, b){
+    return [Math.max(a[0], b[0]), Math.max(a[1], b[1]), Math.max(a[2], b[2])];
   }
 
   this.resources = null;
@@ -1428,8 +1502,11 @@ function intersectRaySphere(ray, sphere) {
       //readTextFile : readTextFile
       pickingRay : pickingRay,
       intersectRaySphere : intersectRaySphere,
+      intersectRayOBB : intersectRayOBB,
       hasHardEdges : hasHardEdges,
-      calculateSmoothNormals : calculateSmoothNormals
+      calculateSmoothNormals : calculateSmoothNormals,
+      Vector3Min : Vector3Min,
+      Vector3Max : Vector3Max
 
       /*TextureTNames : TextureTNames,
       TexturePNames : TexturePNames,

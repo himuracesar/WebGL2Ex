@@ -19,6 +19,8 @@ class BoundingSphere extends BoundingVolume {
         this.radio = config.radio || 0.0;
         super.setPosition(config.position || [0.0, 0.0, 0.0]);
 
+        this.type = BoundingVolumeEnums.Type.Sphere;
+
         if(this.radio == 0.0)
             this.computeBoundingSphere();
 
