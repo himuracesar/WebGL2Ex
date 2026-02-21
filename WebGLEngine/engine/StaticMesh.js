@@ -189,9 +189,9 @@ class StaticMesh {
      * @param {array} position position of the mesh
      */
     setPosition(position){
-        var  deltaPos = m4.subtractVectors(position, this.position);
+        var deltaPos = m4.subtractVectors(position, this.position);
         this.translate(deltaPos);
-        this.position = position;
+        //this.position = position;
     }
 
     /**

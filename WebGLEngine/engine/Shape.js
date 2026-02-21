@@ -307,7 +307,7 @@ class Shape {
 
     /**
      * Builds a cylinder mesh.
-     *      Values to create a cylinder
+     * Values to create a cylinder
      * @param {JSON object} descriptor Descriptor of the cylinder.
      * @param {int} descriptor.slices Division of both caps.
      * @param {int} descriptor.stacks Division of body.
@@ -419,8 +419,7 @@ class Shape {
         this.BuildCylinderTopCap(descriptor, _vertices, _indices, numVertices);
 
         /**
-         * JavaScript does not support parameter by reference but objects parameters. So we have to recalculate
-         * the exact number of vertices.
+         * We have to recalculate the exact number of vertices.
          * The number 8 is the number of elements that belong to the vertex format
          *  3 -> position
          *  2 -> tex coordinates

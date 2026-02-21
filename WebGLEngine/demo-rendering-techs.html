@@ -644,6 +644,7 @@
             shadowMapPipeline.setMatrix("u_mView", lightShadow.view);
 
             sphere.render(shadowMapPipeline);
+            cone.render(shadowMapPipeline);
             floor.render(shadowMapPipeline);
 
             shadowMapPipeline.unuse();
@@ -682,18 +683,12 @@
             //------------------- Stencil -------------------
             // Pass 1: Draw sphere to stencil buffer
 
-            gl.enable(gl.STENCIL_TEST);
-            //gl.clearStencil(0);
-            gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE); // Reemplazar con Ref si pasa el test
-            //gl.stencilOp(gl.KEEP, gl.REPLACE, gl.REPLACE);
-            //gl.stencilOp(gl.REPLACE, gl.REPLACE, gl.REPLACE); // Siempre escribir el valor de referencia
-            gl.stencilFunc(gl.ALWAYS, 1, 0xFF);         // Siempre pasa, escribe un '1'
-            gl.stencilMask(0xFF);                       // Habilitar escritura
-
             cookTorrancePipeline.use();
 
             gl.enable(gl.STENCIL_TEST);
             gl.stencilOp(gl.REPLACE, gl.REPLACE, gl.REPLACE); // Siempre escribir el valor de referencia
+            //gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE); // Reemplazar con Ref si pasa el test
+            //gl.stencilOp(gl.KEEP, gl.REPLACE, gl.REPLACE);
             gl.stencilFunc(gl.ALWAYS, 1, 0xFF);         // Siempre pasa, escribe un '1'
             gl.stencilMask(0xFF);                       // Habilitar escritura
 
@@ -737,18 +732,13 @@
 
                 outlinePipeline.setUniformMatrix4x4("u_mProj", camera.getProjectionMatrix());
                 outlinePipeline.setUniformMatrix4x4("u_mView", camera.getViewMatrix());
-                outlinePipeline.setUniformFloat("u_thickness", 1.2);
+                outlinePipeline.setUniformFloat("u_thickness", 2.2);
 
-                /*sphere.render(outlinePipeline, RenderMode.Triangles);
-                cube.render(outlinePipeline, RenderMode.TrianglesStrip);
-                cylinder.render(outlinePipeline, RenderMode.TrianglesStrip);
-                pyramid.render(outlinePipeline, RenderMode.TrianglesStrip);
-                cone.render(outlinePipeline, RenderMode.TrianglesStrip);*/
                 selectedObject.render(outlinePipeline, RenderMode.Triangles);
 
                 // Limpieza de estado para el siguiente frame
                 gl.disable(gl.STENCIL_TEST);
-                //gl.enable(gl.DEPTH_TEST);
+                gl.enable(gl.DEPTH_TEST);
 
                 outlinePipeline.unuse();
 

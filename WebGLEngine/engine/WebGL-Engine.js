@@ -85,19 +85,22 @@ include("/WebGLEngine/engine/RenderTarget.js");
       /**
        * Initialize WebGL 2
        * @param {Canvas} canvas 
+       * @param {Object} descriptor The descriptor of the WebGL context.
        * @returns {WebGL2RenderingContext} Context of WebGL to render
        */
-      function initWebGL(canvas){
+      function initWebGL(canvas, descriptor = null) {
         //var gl = canvas.getContext("webgl2");
 
-        const gl = canvas.getContext("webgl2", {
+        var desc = {
             stencil: true,              // Necesario para tus máscaras
             antialias: true,           // Lo desactivamos para usar un post-process propio
             depth: true,                // Necesario para 3D
             alpha: false,               // Optimizamos el blending con el DOM
             powerPreference: "high-performance", // Exigimos la mejor GPU disponible
             desynchronized: true        // WebGL2: Reduce la latencia de input (baja latencia)
-        });
+        };
+
+        const gl = canvas.getContext("webgl2", descriptor || desc);
 
         if(!gl) {
           alert("Your browser does not support WebGL 2");
@@ -1262,14 +1265,14 @@ function intersectRayOBB(ray, box) {
   }
 
   /**
-   * Detecta si una malla tiene aristas duras (split normals).
-   * @param {Float32Array} positions 
-   * @param {Float32Array} normals 
-   * @returns {boolean}
+   * Detects if a mesh has hard edges (split normals).
+   * @param {Float32Array} positions Positions of the vertices [x, y, z, u, v, nx, ny, nz, ...]
+   * @param {Float32Array} normals Normals of the vertices [nx, ny, nz, ...]
+   * @returns {boolean} true if there is hard edges (split normals), false if all normals are smooth.
    */
   function hasHardEdges(positions, normals) {
       const posToNormal = new Map();
-      const EPSILON = 0.00001; // Para evitar errores de precisión flotante
+      const EPSILON = 1e-6; // Para evitar errores de precisión flotante
 
       for (let i = 0; i < positions.length / 3; i++) {
           const x = positions[i * 3];

@@ -1,0 +1,469 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gizmos - WebGL2 Engine</title>
+
+    <link rel="icon" type="image/x-icon" href="/images/favicon.ico">
+
+    <script type="text/javascript" src="engine/WebGL-Engine.js"></script>
+    <script type="text/javascript" src="engine/pipeline/Pipeline.js"></script>
+    <script type="text/javascript" src="engine/pipeline/AxisPipeline.js"></script>
+    <script type="text/javascript" src="engine/pipeline/SimplePipeline.js"></script>
+
+    <script type="text/javascript" src="../../WebGLEngine/engine/lib/dat.gui.js"></script>
+    <script type="text/javascript" src="../../WebGLEngine/engine/Screen.js"></script>
+    <script type="text/javascript" src="../../WebGLEngine/engine/pipeline/ScreenPipeline.js"></script>
+
+    <script type="text/javascript" src="engine/Shape.js"></script>
+
+</head>
+<body onload="init();">
+    <!--canvas id="webGLcanvas"-->
+    <canvas id="webGLcanvas" width="1300" height="900">
+        Your browser does not support the HTML5 canvas element.
+    </canvas>
+    
+    <script type="text/javascript">
+        var gl;
+        var canvas;
+        var camera;
+
+        var x = 0;
+        var y = 0;
+        var lastX = 0;
+        var lastY = 0;
+        var dragging = false;
+
+        var projectMode = ProjectMode.Development;
+
+        //------------- Meshes -------------
+        var grid;
+        var axisVao;
+        var axisVbo;
+        var axisIbo;
+        var numAxisIndices = 0;
+        var numVertices = 0;
+        var transformBufferInst;
+        var colorVbo;
+
+        //------------- Material -------------
+        var m_gray;
+
+        //------------- Pipelines -------------
+        var simplePipeline;
+        var axisPipeline;
+
+
+        //------------- Matrices -------------
+        var mModel;
+
+        
+
+        /**
+         * Create basic shapes.
+         */
+        function createShapes(){
+            var shape = new Shape();
+            
+            var descriptor = {};
+            descriptor.delta = [100.0, 0.0, 100.0];
+            descriptor.numVertRows = 50;
+            descriptor.numVertCols = 50;
+            descriptor.position = [0.0, 0.0, 0.0];
+            descriptor.texScale = 1.0;
+            
+            grid = shape.createGrid(descriptor);
+            grid.setMaterial(0, m_gray);
+            grid.getSubmesh(0).materialIndex = 0;
+        }
+
+        function createMaterials(){
+            m_gray = new Material();
+            m_gray.setDiffuseColor([0.5, 0.5, 0.5, 1.0]);
+            m_gray.setAmbientColor([0.5, 0.5, 0.5, 1.0]);
+            m_gray.setSpecularColor([1.0, 1.0, 1.0, 1.0]);
+            m_gray.setSpecularPower(32.0);
+            m_gray.setBindingPoint(0);
+            m_gray.setName("M_GRAY");
+            m_gray.setHasTexture(false);
+            m_gray.setMetallness(0.5);
+            m_gray.setRoughness(1.0);
+            m_gray.setFresnel(0.0);
+        }
+
+        function createCylinder(descriptor, vertices, indices, basePosition = [0.0, 0.0, 0.0]){
+            var bi = vertices.length / 3;
+
+            var stackHeight = descriptor.height / descriptor.stacks;
+
+            // Amount to increment radius as we move up each stack level from bottom to top.
+            var radioStep = (descriptor.topRadio - descriptor.bottomRadio) / descriptor.stacks;
+
+            var ringCount = descriptor.stacks + 1;
+
+            // Compute vertices for each stack ring starting at the bottom and moving up.
+            for (var i = 0; i < ringCount; ++i)
+            {
+                //var y = -0.5 * descriptor.height + i * stackHeight;
+                //var y = descriptor.height + i * stackHeight;
+                var y = descriptor.height * i / descriptor.stacks;
+                var r = descriptor.bottomRadio + i * radioStep;
+        
+                // vertices of ring
+                var theta = 2.0 * Math.PI / descriptor.slices;
+                for (var j = 0; j <= descriptor.slices; ++j)
+                {
+                    var c = Math.cos(j * theta);
+                    var s = Math.sin(j * theta);
+
+                    //position
+                    vertices.push(r * c + basePosition[0]);
+                    vertices.push(y + basePosition[1]);
+                    vertices.push(r * s + basePosition[2]);
+                }
+            }
+
+            // Add one because we duplicate the first and last vertex per ring
+            // since the texture coordinates are different.
+            var ringVertexCount = descriptor.slices + 1;
+
+            // Compute indices for each stack.
+            for (var i = 0; i < descriptor.stacks; ++i)
+            {
+                for (var j = 0; j < descriptor.slices; ++j)
+                {
+                    indices.push(i * ringVertexCount + j + bi);
+                    indices.push((i + 1) * ringVertexCount + j + bi);
+                    indices.push((i + 1) * ringVertexCount + j + 1 + bi);
+
+                    indices.push(i * ringVertexCount + j + bi);
+                    indices.push((i + 1) * ringVertexCount + j + 1 + bi);
+                    indices.push(i * ringVertexCount + j + 1 + bi);
+                }
+            }
+        }
+
+        function createAxisTranslation(){
+            var descriptor = {};
+            descriptor.height = 30.0;
+            descriptor.bottomRadio = 2.0;
+            descriptor.topRadio = 2.0;
+            descriptor.stacks = 1;
+            descriptor.slices = 16;
+            descriptor.topCap = false;
+
+            var vertices = [];
+            var indices = [];
+
+            createCylinder(descriptor, vertices, indices);
+
+            descriptor.height = 20.0;
+            descriptor.bottomRadio = 6.0;
+            descriptor.topRadio = 0.0;
+            descriptor.stacks = 1;
+            descriptor.slices = 16;
+            descriptor.topCap = false;
+
+            createCylinder(descriptor, vertices, indices, [0.0, 30.0, 0.0]);
+
+            return {
+                vertices: new Float32Array(vertices),
+                indices: new Uint16Array(indices),
+                numVertices : vertices.length / 3,
+                numIndices : indices.length
+            };
+        }
+
+        function init(){
+            canvas = document.getElementById("webGLcanvas");
+
+            var descriptor = {
+                stencil: false,              // Necesario para tus máscaras
+                antialias: false,           // Lo desactivamos para usar un post-process propio
+                depth: true,                // Necesario para 3D
+                alpha: false,               // Optimizamos el blending con el DOM
+                powerPreference: "high-performance", // Exigimos la mejor GPU disponible
+                desynchronized: true        // WebGL2: Reduce la latencia de input (baja latencia)
+            };
+
+            gl = webGLengine.initWebGL(canvas, descriptor);
+
+            //webGLengine.auditStencilBuffer(gl);
+
+            camera = new Camera(gl);
+            camera.setPosition([40.0, 100.0, 140.0]);
+            camera.setSpeed(1.0);
+            camera.setFarPlane(4000.0);
+
+            window.onkeydown = event => this.onKeyDown(event);
+            window.onkeyup = event => this.onKeyUp(event);
+            canvas.onmouseup = event => this.onMouseUp(event);
+            canvas.onmousedown = event => this.onMouseDown(event);
+            canvas.onmousemove = event => this.onMouseMove(event);
+
+            simplePipeline = new SimplePipeline(gl);
+            axisPipeline = new AxisPipeline(gl);
+
+            createMaterials();
+            createShapes();
+
+            mModel = m4.identity();
+
+            //******** Create Axis ************
+            var axisGeometry = createAxisTranslation();
+            numAxisIndices = axisGeometry.numIndices;
+
+            axisVao = gl.createVertexArray();
+            axisVbo = gl.createBuffer();
+            colorVbo = gl.createBuffer();
+
+            gl.bindVertexArray(axisVao);
+            gl.bindBuffer(gl.ARRAY_BUFFER, axisVbo);
+            gl.bufferData(gl.ARRAY_BUFFER, axisGeometry.vertices, gl.STATIC_DRAW);
+
+            axisIbo = gl.createBuffer();
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, axisIbo);
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, axisGeometry.indices, gl.STATIC_DRAW);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, null);
+            gl.bindVertexArray(null);
+
+            /*******************************
+             * Instances
+             * *******************************/
+            var transformArray = new Float32Array(16 * axisGeometry.numVertices); // 16 floats per matrix
+            for(let i = 0; i < axisGeometry.numVertices; i++){
+                transformArray.set(m4.identity(), i * 16);
+            }
+
+            const numInstances = 3;
+            const matrices = [];
+            var transformData = new Float32Array(16 * numInstances);
+            for (let i = 0; i < numInstances; ++i) {
+                //var mModel = m4.translation(transformInstances[i * 3], transformInstances[i * 3 + 1], transformInstances[i * 3 + 2]);
+                const byteOffsetToMatrix = i * 16 * 4;
+                const numFloatsForView = 16;
+                matrices.push(new Float32Array(
+                    transformData.buffer,
+                    byteOffsetToMatrix,
+                    numFloatsForView));
+            }
+
+            // update all the matrices
+            matrices.forEach((mat, ndx) => {
+                switch (ndx) {
+                    case 0:
+                        m4.identity(mat);
+                        break;
+                    case 1: // X axis
+                        m4.xRotation(Math.PI / 2.0, mat);
+                        break;
+                    case 2: // Z axis
+                        m4.zRotation(-Math.PI / 2.0, mat);
+                        break;
+                }
+            });
+
+            transformBufferInst = webGLengine.createBuffer(gl);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, transformBufferInst);
+            gl.bufferData(gl.ARRAY_BUFFER, transformData.byteLength, gl.DYNAMIC_DRAW);
+            gl.bufferSubData(gl.ARRAY_BUFFER, 0, transformData);
+
+
+            // color buffer
+            var colors = [
+                0.0, 1.0, 0.0, 1.0,
+                0.0, 0.0, 1.0, 1.0,
+                1.0, 0.0, 0.0, 1.0
+            ];
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, colorVbo);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
+
+            updateAndRender();
+        }
+
+        function input(){
+            if(keypress[KeyCode.W])
+                camera.moveForward(1);
+            if(keypress[KeyCode.S])
+                camera.moveForward(-1);
+            if(keypress[KeyCode.A])
+                camera.strafe(-1);
+            if(keypress[KeyCode.D])
+                camera.strafe(1);
+            if(keypress[KeyCode.Left])
+                camera.yaw(0.01);
+            if(keypress[KeyCode.Right])
+                camera.yaw(-0.01);
+            if(keypress[KeyCode.Up])
+                camera.pitch(0.01);
+            if(keypress[KeyCode.Down])
+                camera.pitch(-0.01);
+        }
+
+        function onMouseUp(event) {
+            this.dragging = false;
+        }
+
+        function onMouseDown(event) {
+            this.dragging = true;
+            var x = event.clientX; // x coordinate of a mouse pointer
+            var y = event.clientY; // y coordinate of a mouse pointer
+            var rect = event.target.getBoundingClientRect() ;
+
+            x = ((x - rect.left) - canvas.width / 2) / (canvas.width / 2);
+            y = (canvas.height / 2 - (y - rect.top)) / (canvas.height / 2);
+        }
+
+        function onMouseMove(event){
+            this.lastX = this.x;
+            this.lastY = this.y;
+
+            this.x = event.clientX;
+            this.y = event.clientY;
+
+            if (!this.dragging) 
+                return;
+
+            const dx = this.x - this.lastX;
+            const dy = this.y - this.lastY;
+
+            camera.yaw(dx * camera.getSpeedRotation());
+            camera.pitch(dy * camera.getSpeedRotation());
+        }
+
+        function update(){
+            input();
+        }   
+
+        function render(){
+            //-------------- Render Scene --------------
+            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+            gl.clearColor(0.4, 0.6, 0.9, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            gl.enable(gl.DEPTH_TEST);
+            gl.enable(gl.CULL_FACE);
+
+            gl.cullFace(gl.BACK);
+
+            simplePipeline.use();
+
+            simplePipeline.setUniformMatrix4x4("u_mProj", camera.getProjectionMatrix());
+            simplePipeline.setUniformMatrix4x4("u_mView", camera.getViewMatrix());
+            simplePipeline.setUniformVector3("u_camera_position", camera.getPosition());
+            simplePipeline.setColor([0.8, 0.8, 0.8, 1.0]);
+
+            grid.render(simplePipeline, RenderMode.Lines); 
+
+            simplePipeline.unuse();
+
+            /*axisPipeline.use();
+
+            //gl.disable(gl.CULL_FACE);
+
+            axisPipeline.setUniformMatrix4x4("u_mProj", camera.getProjectionMatrix());
+            axisPipeline.setUniformMatrix4x4("u_mView", camera.getViewMatrix());
+            axisPipeline.setUniformMatrix4x4("u_mModel", mModel);
+            axisPipeline.setUniformLocationColor([0.0, 1.0, 0.0, 1.0]);
+
+            gl.bindVertexArray(axisVao);
+            gl.bindBuffer(gl.ARRAY_BUFFER, axisVbo);
+
+            gl.vertexAttribPointer(
+                axisPipeline.getAttributeLocation("in_position"), 
+                3, 
+                gl.FLOAT, 
+                gl.FALSE, 
+                0, //3 * Float32Array.BYTES_PER_ELEMENT, 
+                0
+            );
+
+            gl.enableVertexAttribArray(axisPipeline.getAttributeLocation("in_position"));
+
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, axisIbo);
+            gl.drawElements(gl.TRIANGLES, numAxisIndices, gl.UNSIGNED_SHORT, 0);
+
+            axisPipeline.unuse();
+
+            gl.bindVertexArray(null);*/
+            axisPipeline.use();
+            gl.disable(gl.CULL_FACE);
+
+            gl.bindVertexArray(axisVao);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, transformBufferInst);
+
+            gl.vertexAttribPointer(axisPipeline.getAttributeLocation("in_mModel"), 4, gl.FLOAT, gl.FALSE, 16 * Float32Array.BYTES_PER_ELEMENT, 0);
+            gl.vertexAttribPointer(axisPipeline.getAttributeLocation("in_mModel") + 1, 4, gl.FLOAT, gl.FALSE, 16 * Float32Array.BYTES_PER_ELEMENT, 4 * Float32Array.BYTES_PER_ELEMENT);
+            gl.vertexAttribPointer(axisPipeline.getAttributeLocation("in_mModel") + 2, 4, gl.FLOAT, gl.FALSE, 16 * Float32Array.BYTES_PER_ELEMENT, 8 * Float32Array.BYTES_PER_ELEMENT);
+            gl.vertexAttribPointer(axisPipeline.getAttributeLocation("in_mModel") + 3, 4, gl.FLOAT, gl.FALSE, 16 * Float32Array.BYTES_PER_ELEMENT, 12 * Float32Array.BYTES_PER_ELEMENT);
+
+            gl.enableVertexAttribArray(axisPipeline.getAttributeLocation("in_mModel"));
+            gl.enableVertexAttribArray(axisPipeline.getAttributeLocation("in_mModel") + 1);
+            gl.enableVertexAttribArray(axisPipeline.getAttributeLocation("in_mModel") + 2);
+            gl.enableVertexAttribArray(axisPipeline.getAttributeLocation("in_mModel") + 3);
+
+            gl.vertexAttribDivisor(axisPipeline.getAttributeLocation("in_mModel"), 1);
+            gl.vertexAttribDivisor(axisPipeline.getAttributeLocation("in_mModel") + 1, 1);
+            gl.vertexAttribDivisor(axisPipeline.getAttributeLocation("in_mModel") + 2, 1);
+            gl.vertexAttribDivisor(axisPipeline.getAttributeLocation("in_mModel") + 3, 1);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, colorVbo);
+
+            gl.vertexAttribPointer(
+                axisPipeline.getAttributeLocation("in_color"), 
+                4, 
+                gl.FLOAT, 
+                gl.FALSE, 
+                4 * Float32Array.BYTES_PER_ELEMENT, 
+                0
+            );
+
+            gl.enableVertexAttribArray(axisPipeline.getAttributeLocation("in_color"));
+
+            gl.vertexAttribDivisor(axisPipeline.getAttributeLocation("in_color"), 1);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, axisVbo);
+
+            gl.vertexAttribPointer(
+                axisPipeline.getAttributeLocation("in_position"), 
+                3, 
+                gl.FLOAT, 
+                gl.FALSE, 
+                0, //3 * Float32Array.BYTES_PER_ELEMENT, 
+                0
+            );
+
+            gl.enableVertexAttribArray(axisPipeline.getAttributeLocation("in_position"));
+
+            gl.uniformMatrix4fv(axisPipeline.getUniformLocation("u_mProj"), false, camera.getProjectionMatrix());
+            gl.uniformMatrix4fv(axisPipeline.getUniformLocation("u_mView"), false, camera.getViewMatrix());
+            //axisPipeline.setUniformLocationColor([0.0, 1.0, 0.0, 1.0]);
+
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, axisIbo);
+            gl.drawElementsInstanced(gl.TRIANGLES, numAxisIndices, gl.UNSIGNED_SHORT, 0, 3);
+
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+            gl.bindBuffer(gl.ARRAY_BUFFER, null);
+            gl.bindVertexArray(null);
+            
+            axisPipeline.unuse();
+
+            gl.enable(gl.CULL_FACE);
+        }
+
+        function updateAndRender(){
+            update();
+            render();
+
+            requestAnimationFrame(updateAndRender);
+        }
+
+    </script>
+    
+</body>
+</html>
