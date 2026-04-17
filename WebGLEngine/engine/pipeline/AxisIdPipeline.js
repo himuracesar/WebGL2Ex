@@ -1,10 +1,13 @@
 
 /**
- * To draw the axis
+ * To draw the axis with the ID of the instance. This pipeline is used to draw the axis with the ID of the instance, which is useful *  * for picking.
+ * The color of the axis is determined by the ID of the instance, which is sent to the fragment shader as a flat variable. This way, we * can identify which axis is being drawn 
+ * without using the color attribute.
+ * The vertex shader calculates the position of the axis based on the distance to the camera, and the fragment shader outputs a uniform * color for all instances.
  * @author César Himura
  * @version 1.0
  */
-class AxisPipeline extends Pipeline {
+class AxisIdPipeline extends Pipeline {
 
     constructor(){
         var vertexShaderSrc = `#version 300 es
@@ -16,23 +19,22 @@ class AxisPipeline extends Pipeline {
 
             uniform mat4 u_mProj;
             uniform mat4 u_mView;
-            //uniform mat4 u_mModel;
 
-            flat out int v_instanceID; // Enviamos el ID al Fragment Shader
+            flat out int v_instanceID; // Send this ID to Fragment Shader
 
             out vec4 out_color;
 
             void main(){
-                v_instanceID = gl_InstanceID; // Capturamos el ID built-in
+                v_instanceID = gl_InstanceID; // Capture the ID built-in
 
-                // 1. Obtener posición en View Space para saber la distancia a la cámara
+                // 1. Get the position in view space to know the distance of the camera.
                 vec4 viewPos = u_mView * in_mModel * vec4(0.0, 0.0, 0.0, 1.0);
                 float dist = length(viewPos.xyz);
+
+                // 2. Scale the vertex according to the distance
+                float scale = dist * 0.0020; // Adjust to size custom
                 
-                // 2. Escalar el vértice según la distancia
-                float scale = dist * 0.0020; // Ajusta 0.15 según el tamaño deseado
-                
-                // 3. Aplicar transformación (manteniendo el gizmo orientado al objeto)
+                // 3. Apply transformation (keeping the gizmo oriented to the object)
                 gl_Position = u_mProj * u_mView * in_mModel * vec4(in_position * scale, 1.0);
                 out_color = in_color;
             }
@@ -41,24 +43,18 @@ class AxisPipeline extends Pipeline {
         var fragmentShaderSrc = `#version 300 es
             precision highp float;
 
-            in vec4 out_color;
-            flat in int v_instanceID; // Recibimos el ID desde el Vertex Shader
+            flat in int v_instanceID; // Get the ID from the Vertex Shader
 
-            uniform int u_highlightAxis; // -1: none, 1:X, 0:Y, 2:Z
+            in vec4 out_color;
 
             out vec4 color;
 
             void main(){
                 color = out_color;
 
-                // If the axis is active, we make it glow
-                if(u_highlightAxis == v_instanceID) {
-                    color = vec4(1.0, 1.0, 0.0, 1.0); // Yellow highlight
-                }
-
-                // En lugar de usar in_color, usa el ID de instancia para debuguear
+                // Use the ID of the instance for debugging instead of u_color
                 /*vec3 debugColor = vec3(0.0);
-                if(v_instanceID == 0) debugColor = vec3(1.0, 0.0, 0.0); // Rojo
+                if(v_instanceID == 0) debugColor = vec3(1.0, 0.0, 0.0); // Rojo  
                 if(v_instanceID == 1) debugColor = vec3(0.0, 1.0, 0.0); // Verde
                 if(v_instanceID == 2) debugColor = vec3(0.0, 0.0, 1.0); // Azul
                 color = vec4(debugColor, 1.0);*/
@@ -85,13 +81,9 @@ class AxisPipeline extends Pipeline {
 
         var u_mProj = gl.getUniformLocation(this.getProgram(), "u_mProj");
         var u_mView = gl.getUniformLocation(this.getProgram(), "u_mView");
-        var u_highlightAxis = gl.getUniformLocation(this.getProgram(), "u_highlightAxis");
 
         uniforms.set("u_mProj", u_mProj);
         uniforms.set("u_mView", u_mView);
-        uniforms.set("u_highlightAxis", u_highlightAxis);
-        //uniforms.set("u_mModel", u_mModel);
-        //uniforms.set("u_color", u_color);
 
         this.uniforms = uniforms;
     }
@@ -136,13 +128,4 @@ class AxisPipeline extends Pipeline {
     getVertexFormat(){
         return this.vertexFormat;
     }
-
-    /**
-     * Set the uniform variable color in the shader
-     * @param {Vector4} color 
-     */
-    setUniformLocationColor(color){
-        gl.uniform4fv(this.getUniformLocation("u_color"), color);
-    }
-    
 }

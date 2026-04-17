@@ -9,9 +9,11 @@
     <script type="text/javascript" src="engine/WebGL-Engine.js"></script>
     <script type="text/javascript" src="engine/pipeline/Pipeline.js"></script>
     <script type="text/javascript" src="engine/pipeline/AxisPipeline.js"></script>
+    <script type="text/javascript" src="engine/pipeline/AxisIdPipeline.js"></script>
     <script type="text/javascript" src="engine/pipeline/SimplePipeline.js"></script>
 
     <script type="text/javascript" src="../../WebGLEngine/engine/lib/dat.gui.js"></script>
+    <script type="text/javascript" src="../../WebGLEngine/engine/Ray.js"></script>
     <script type="text/javascript" src="../../WebGLEngine/engine/Screen.js"></script>
     <script type="text/javascript" src="../../WebGLEngine/engine/pipeline/ScreenPipeline.js"></script>
 
@@ -53,12 +55,46 @@
         //------------- Pipelines -------------
         var simplePipeline;
         var axisPipeline;
-
+        var axisIdPipeline;
+        var screenPipeline;
 
         //------------- Matrices -------------
         var mModel;
 
-        
+        //------------- Render Target -------------
+        var renderTarget;
+
+        //------------- Screen -------------
+        var screenOff;
+
+        //------------- Axis data -------------
+        var axisClicked = -1;
+        var t1 = 0;
+        var t2 = 0;
+        var numIndicesAxisTranslation = 0;
+        var numIndicesAxisScale = 0;
+        var numIndicesAxisRotation = 0;
+        var axisPosition = [0.0, 0.0, 0.0];
+        var axisScale = [1.0, 1.0, 1.0];
+        var axisRotation = [0.0, 0.0, 0.0];
+        var startAngle = 0.0;
+        var currentAngle = 0.0;
+
+        const AxisMode = Object.freeze({
+            Translation : 0,
+            Rotation : 1,
+            Scale : 2
+        });
+
+        const Axis = Object.freeze({
+            0: [1.0, 0.0, 0.0], // X axis
+            1: [0.0, 1.0, 0.0], // Y axis
+            2: [0.0, 0.0, 1.0]  // Z axis
+        });
+
+        var currentAxisMode = AxisMode.Translation;
+
+         //------------- End Axis data -------------
 
         /**
          * Create basic shapes.
@@ -78,6 +114,9 @@
             grid.getSubmesh(0).materialIndex = 0;
         }
 
+        /**
+         * Create materials.
+         */
         function createMaterials(){
             m_gray = new Material();
             m_gray.setDiffuseColor([0.5, 0.5, 0.5, 1.0]);
@@ -92,12 +131,19 @@
             m_gray.setFresnel(0.0);
         }
 
+        /**
+         * Create a cylinder mesh. The mesh is made from bottom to up in this way the pivot is at the bottom of the cylinder.
+         * @param {Object} descriptor - Object with the following properties: height, bottomRadio, topRadio, stacks, slices, topCap.
+         * @param {Array} vertices - Array to store the generated vertices.
+         * @param {Array} indices - Array to store the generated indices.
+         * @param {Array} basePosition - Optional array [x, y, z]
+         */
         function createCylinder(descriptor, vertices, indices, basePosition = [0.0, 0.0, 0.0]){
             var bi = vertices.length / 3;
 
             var stackHeight = descriptor.height / descriptor.stacks;
 
-            // Amount to increment radius as we move up each stack level from bottom to top.
+            // Amount to increment radio as we move up each stack level from bottom to top.
             var radioStep = (descriptor.topRadio - descriptor.bottomRadio) / descriptor.stacks;
 
             var ringCount = descriptor.stacks + 1;
@@ -144,9 +190,118 @@
             }
         }
 
+        /**
+         * Create a cube mesh. The mesh is centered in the middle of the cube.
+         * @param {Object} descriptor - Object with the following properties: width, height, depth.
+         * @param {Array} vertices - Array to store the generated vertices. The function will push the new vertices at the end of the array.
+         * @param {Array} indices - Array to store the generated indices. The function will push the new indices at the end of the array.  
+         * @param {Array} basePosition - Optional array [x, y, z] to set the position of the cube. The position is the center of the cube.
+         */
+        function createCube(descriptor, vertices, indices, basePosition = [0.0, 0.0, 0.0]){
+            var bi = vertices.length / 3; // base index for the vertices of the cube
+
+            var w = descriptor.width / 2.0;
+            var h = descriptor.height / 2.0;
+            var d = descriptor.depth / 2.0;
+
+            // Front face
+            vertices.push(-w + basePosition[0], -h + basePosition[1], d + basePosition[2]);
+            vertices.push(w + basePosition[0], -h + basePosition[1], d + basePosition[2]);
+            vertices.push(w + basePosition[0], h + basePosition[1], d + basePosition[2]);
+            vertices.push(-w + basePosition[0], h + basePosition[1], d + basePosition[2]);
+
+            // Back face
+            vertices.push(-w + basePosition[0], -h + basePosition[1], -d + basePosition[2]);
+            vertices.push(w + basePosition[0], -h + basePosition[1], -d + basePosition[2]);
+            vertices.push(w + basePosition[0], h + basePosition[1], -d + basePosition[2]);
+            vertices.push(-w + basePosition[0], h + basePosition[1], -d + basePosition[2]);
+
+            // Top face
+            vertices.push(-w + basePosition[0], h + basePosition[1], d + basePosition[2]);
+            vertices.push(w + basePosition[0], h + basePosition[1], d + basePosition[2]);
+            vertices.push(w + basePosition[0], h + basePosition[1], -d + basePosition[2]);
+            vertices.push(-w + basePosition[0], h + basePosition[1], -d + basePosition[2]);
+
+            // Bottom face
+            vertices.push(-w + basePosition[0], -h + basePosition[1], d + basePosition[2]);
+            vertices.push(w + basePosition[0], -h + basePosition[1], d + basePosition[2]);
+            vertices.push(w + basePosition[0], -h + basePosition[1], -d + basePosition[2]);
+            vertices.push(-w + basePosition[0], -h + basePosition[1], -d + basePosition[2]);
+
+            // Left face
+            vertices.push(-w + basePosition[0], -h + basePosition[1], d + basePosition[2]);
+            vertices.push(-w + basePosition[0], h + basePosition[1], d + basePosition[2]);
+            vertices.push(-w + basePosition[0], h + basePosition[1], -d + basePosition[2]);
+            vertices.push(-w + basePosition[0], -h + basePosition[1], -d + basePosition[2]);
+
+            // Right face
+            vertices.push(w + basePosition[0], -h + basePosition[1], d + basePosition[2]);
+            vertices.push(w + basePosition[0], h + basePosition[1], d + basePosition[2]);
+            vertices.push(w + basePosition[0], h + basePosition[1], -d + basePosition[2]);
+            vertices.push(w + basePosition[0], -h + basePosition[1], -d + basePosition[2]);
+
+            indices.push(
+                //Front
+                0 + bi, 1 + bi, 2 + bi, 0 + bi, 2 + bi, 3 + bi,
+                //Right
+                4 + bi, 5 + bi, 6 + bi, 4 + bi, 6 + bi, 7 + bi,
+                //Back
+                8 + bi, 9 + bi, 10 + bi, 8 + bi, 10 + bi, 11 + bi,
+                //Left
+                12 + bi, 13 + bi, 14 + bi, 12 + bi, 14 + bi, 15 + bi,
+                //Top
+                16 + bi, 17 + bi, 18 + bi, 16 + bi, 18 + bi, 19 + bi,
+                //Bottom
+                20 + bi, 21 + bi, 22 + bi, 20 + bi, 22 + bi, 23 + bi
+            );
+        }
+
+        /**
+         * Create a torus mesh. The mesh is centered in the middle of the torus.
+         * @param {Object} descriptor - Object with the following properties: radio, tuberadio, radialSegments, tubularSegments.
+         * @param {Array} vertices - Array to store the generated vertices. The function will push the new vertices at the end of the array.
+         * @param {Array} indices - Array to store the generated indices. The function will push the new indices at the end of the array.  
+         */
+        function createTorus(descriptor, vertices, indices){ 
+            var bi = vertices.length / 3;
+
+            // Generar vértices
+            for (let j = 0; j <= descriptor.radialSegments; j++) {
+                for (let i = 0; i <= descriptor.tubularSegments; i++) {
+                    const u = (i / descriptor.tubularSegments) * Math.PI * 2;
+                    const v = (j / descriptor.radialSegments) * Math.PI * 2;
+
+                    // Ecuaciones paramétricas del Toroide
+                    const x = (descriptor.radio + descriptor.tuberadio * Math.cos(v)) * Math.cos(u);
+                    const z = (descriptor.radio + descriptor.tuberadio * Math.cos(v)) * Math.sin(u);
+                    const y = descriptor.tuberadio * Math.sin(v);
+
+                    vertices.push(x, y, z);
+                }
+            }
+
+            // Generar índices para los triángulos (Faces)
+            for (let j = 1; j <= descriptor.radialSegments; j++) {
+                for (let i = 1; i <= descriptor.tubularSegments; i++) {
+                    const a = (descriptor.tubularSegments + 1) * j + i - 1;
+                    const b = (descriptor.tubularSegments + 1) * (j - 1) + i - 1;
+                    const c = (descriptor.tubularSegments + 1) * (j - 1) + i;
+                    const d = (descriptor.tubularSegments + 1) * j + i;
+
+                    // Dos triángulos por cada segmento del tubo
+                    indices.push(a + bi, b + bi, d + bi);
+                    indices.push(b + bi, c + bi, d + bi);
+                }
+            }
+        }
+
+        /**
+         * Creates a mesh for the translation gizmo with 3 cylinders: one for the axis and another for the cone at the end.
+         * @returns {Object} Object with the following properties: vertices, indices, numVertices, numIndices.
+         */
         function createAxisTranslation(){
             var descriptor = {};
-            descriptor.height = 30.0;
+            descriptor.height = 40.0;
             descriptor.bottomRadio = 2.0;
             descriptor.topRadio = 2.0;
             descriptor.stacks = 1;
@@ -165,7 +320,7 @@
             descriptor.slices = 16;
             descriptor.topCap = false;
 
-            createCylinder(descriptor, vertices, indices, [0.0, 30.0, 0.0]);
+            createCylinder(descriptor, vertices, indices, [0.0, 40.0, 0.0]);
 
             return {
                 vertices: new Float32Array(vertices),
@@ -174,6 +329,278 @@
                 numIndices : indices.length
             };
         }
+
+        /**
+         * Creates a mesh for the scale gizmo with 3 cylinders: one for the axis and another for the cube at the end.
+         * @returns {Object} Object with the following properties: vertices, indices, numVertices, numIndices.
+         */ 
+        function createAxisScale(){
+            var descriptor = {};
+            descriptor.height = 40.0;
+            descriptor.bottomRadio = 2.0;
+            descriptor.topRadio = 2.0;
+            descriptor.stacks = 1;
+            descriptor.slices = 16;
+            descriptor.topCap = false;
+
+            var vertices = [];
+            var indices = [];
+
+            createCylinder(descriptor, vertices, indices);
+            
+            var radio = 10.0;
+
+            descriptor = {};
+            descriptor.width = radio;
+            descriptor.height = radio;
+            descriptor.depth = radio;
+
+            createCube(descriptor, vertices, indices, [0.0, 40.0, 0.0]);
+
+            return {
+                vertices: new Float32Array(vertices),
+                indices: new Uint16Array(indices),
+                numVertices : vertices.length / 3,
+                numIndices : indices.length
+            };
+        }
+
+        /**
+         * Creates a mesh for the rotation gizmo with a torus.
+         * @returns {Object} Object with the following properties: vertices, indices, numVertices, numIndices.
+         */
+        function createAxisRotation(){
+            var descriptor = {};
+            descriptor.radio = 30.0;
+            descriptor.tuberadio = 5.0;
+            descriptor.radialSegments = 32;
+            descriptor.tubularSegments = 16;
+
+            var vertices = [];
+            var indices = [];
+
+            createTorus(descriptor, vertices, indices);
+
+            return {
+                vertices: new Float32Array(vertices),
+                indices: new Uint16Array(indices),
+                numVertices : vertices.length / 3,
+                numIndices : indices.length
+            };
+        }
+
+        /**
+         * Creates a mesh for the gizmo with 3 cylinders: one for the axis and another for the cone at the end of the translation gizmo and a cube at the end of the scale gizmo.  
+         * @returns {Object} Object with the following properties: vertices, indices, numVertices, numIndices.
+         */
+        function createAxis(){
+            var descriptor = {};
+            var vertices = [];
+            var indices = [];
+
+            //create axis translation
+            descriptor.height = 40.0;
+            descriptor.bottomRadio = 2.0;
+            descriptor.topRadio = 2.0;
+            descriptor.stacks = 1;
+            descriptor.slices = 16;
+            descriptor.topCap = false;
+
+            createCylinder(descriptor, vertices, indices);
+
+            descriptor.height = 20.0;
+            descriptor.bottomRadio = 6.0;
+            descriptor.topRadio = 0.0;
+            descriptor.stacks = 1;
+            descriptor.slices = 16;
+            descriptor.topCap = false;
+
+            createCylinder(descriptor, vertices, indices, [0.0, 40.0, 0.0]);
+
+            numIndicesAxisTranslation = indices.length;
+
+            //create axis scale
+            descriptor.height = 40.0;
+            descriptor.bottomRadio = 2.0;
+            descriptor.topRadio = 2.0;
+            descriptor.stacks = 1;
+            descriptor.slices = 16;
+            descriptor.topCap = false;
+
+            createCylinder(descriptor, vertices, indices);
+            
+            const radio = 10.0;
+
+            descriptor = {};
+            descriptor.width = radio;
+            descriptor.height = radio;
+            descriptor.depth = radio;
+
+            createCube(descriptor, vertices, indices, [0.0, 40.0, 0.0]);
+
+            numIndicesAxisScale = indices.length - numIndicesAxisTranslation;
+
+            descriptor = {};
+            descriptor.radio = 40.0;
+            descriptor.tuberadio = 3.0;
+            descriptor.radialSegments = 32;
+            descriptor.tubularSegments = 16;
+
+            createTorus(descriptor, vertices, indices);
+
+            numIndicesAxisRotation = indices.length - (numIndicesAxisTranslation + numIndicesAxisScale);
+
+            return {
+                vertices: new Float32Array(vertices),
+                indices: new Uint16Array(indices),
+                numVertices : vertices.length / 3,
+                numIndices : indices.length
+            };
+        }
+        
+        /**
+         * Calculates the closest point on the selected axis to the mouse ray.
+         * @param {Vector3} axisPosition - Position of the axis (gizmo).
+         * @param {int} axisSelected - Index of the selected axis (0: X, 1: Y, 2: Z).
+         * @return {float} The closest point on the axis to the mouse ray.
+         */ 
+        function getClosestPointOnAxis(axisPosition, axisSelected) {
+            // rayOrigin: posición de la cámara
+            // rayDir: resultado de getMouseRay
+            // axisOrigin: posición del objeto/gizmo
+            // axisDir: vector unitario del eje (ej: [1,0,0])
+
+            const axisDirs = [
+                [1.0, 0.0, 0.0], // X axis
+                [0.0, 1.0, 0.0], // Y axis
+                [0.0, 0.0, 1.0]  // Z axis
+            ];
+
+            const ray = webGLengine.pickingRay(mouse.x, mouse.y, gl.canvas.width, gl.canvas.height, camera.getViewMatrix(), camera.getProjectionMatrix());
+
+            const n = m4.cross(ray.getDirection(), m4.cross(axisDirs[axisSelected], ray.getDirection()));
+            const denominator = m4.dot(axisDirs[axisSelected], n);
+            
+            if (Math.abs(denominator) < 0.0001) 
+                return 0; // Evitar división por cero
+
+            const t = m4.dot(m4.subtractVectors(ray.getOrigin(), axisPosition), n) / denominator;
+
+            return t;
+        }
+
+        /**
+         * Updates the transformation matrices for the axis instances and uploads them to the GPU.
+         */
+        function updateAxisData(){
+            const numInstances = 3;
+            const matrices = [];
+            var transformData = new Float32Array(16 * numInstances);
+            for (let i = 0; i < numInstances; ++i) {
+                //var mModel = m4.translation(transformInstances[i * 3], transformInstances[i * 3 + 1], transformInstances[i * 3 + 2]);
+                const byteOffsetToMatrix = i * 16 * 4;
+                const numFloatsForView = 16;
+                matrices.push(new Float32Array(
+                    transformData.buffer,
+                    byteOffsetToMatrix,
+                    numFloatsForView));
+            }
+
+            // update all the matrices
+            matrices.forEach((mat, ndx) => {
+                let mPos = m4.translation(axisPosition[0], axisPosition[1], axisPosition[2]);
+                let mRot = m4.identity();
+
+                switch (ndx) {
+                    case 0: // X axis
+                        mRot = m4.zRotation(-Math.PI / 2.0);
+                        //mRot = m4.yRotation(-Math.PI / 2.0);
+                        break;
+                    case 1: // Y axis
+                        mRot = m4.identity();
+                        break;
+                    case 2: // Z axis
+                        mRot = m4.xRotation(Math.PI / 2.0);
+                        break;
+                }
+
+                const finalMat = m4.multiply(mPos, mRot);
+    
+                mat.set(finalMat);
+            });
+            
+            gl.bindBuffer(gl.ARRAY_BUFFER, transformBufferInst);
+            gl.bufferData(gl.ARRAY_BUFFER, transformData, gl.DYNAMIC_DRAW);
+        }
+
+        //-------------------------------------------------------------------------------
+        /**
+         * @param {Vector3} axisPosition - Position of the axis (gizmo).
+         * @param {Vector3} axisRotation - Axis of rotation (Normal of the plane for rotation gizmo, or direction of the axis for translation/scale gizmo).
+         * @return {Vector3|null} The point of intersection between the mouse ray and the plane defined by axisPosition and axisRotation, or null if there is no intersection.
+         */
+        function intersectRayPlane(axisPosition, axisRotation) {
+            var ray = webGLengine.pickingRay(mouse.x, mouse.y, gl.canvas.width, gl.canvas.height, camera.getViewMatrix(), camera.getProjectionMatrix());
+            
+            const denom = m4.dot(axisRotation, ray.getDirection());
+            
+            //If the denominator is close to 0, the ray is parallel to the plane
+            if (Math.abs(denom) < 0.0001) 
+                return null;
+
+            const t = m4.dot(m4.subtractVectors(axisPosition, ray.getOrigin()), axisRotation) / denom;
+            
+            if (t < 0) 
+                return null; // The plane is behind the camera
+
+            //Point of intersection: P = Origin + t * Dir
+            return m4.addVectors(ray.getOrigin(), m4.scaleVector(ray.getDirection(), t));
+        }
+
+        /**
+         * Calculates the angle of a vector on a plane defined by its normal (axisRotation) using atan2. 
+         * This is used for the rotation gizmo to calculate the angle of rotation based * on the mouse movement.
+         * @param {Vector3} vector - The vector to calculate the angle for (from the center of the object to the point where we touch the plane).
+         * @param {Vector3} axisRotation - The normal of the plane for the rotation gizmo.
+         * @return {float} The angle of the vector on the plane in radians.
+         */
+        function getAngleOnPlane(vector, axisRotation) {
+            //We need two axes perpendicular to the normal to create a 2D space. We can use the cross product to find these axes.
+            //If the axisRotation is close to Y, we can use X as tangent, otherwise we can use the cross product with Y to find the tangent. The bitangent is the cross product of the normal and the tangent.
+            let tangent, bitangent;
+            if (Math.abs(axisRotation[1]) > 0.9) {
+                tangent = [1, 0, 0]; // X
+            } else {
+                tangent = m4.normalize(m4.cross(axisRotation, [0, 1, 0]));
+            }
+            
+            bitangent = m4.cross(axisRotation, tangent);
+
+            const x = m4.dot(vector, tangent);
+            const y = m4.dot(vector, bitangent);
+            
+            return Math.atan2(y, x);
+        }
+
+        function computeAngle(){
+            if(axisClicked > -1 && currentAxisMode == AxisMode.Rotation){
+                const axisNormal = Axis[axisClicked]; 
+                const hitPoint = intersectRayPlane(axisPosition, axisNormal);
+
+                if (hitPoint) {
+                    //Vector from the center of the object to the point where we touch the plane
+                    const currentVector = m4.normalize(m4.subtractVectors(hitPoint, axisPosition));
+                    
+                    //Now we calculate the angle of this vector with respect to the local axes of the plane
+                    const currentAngle = getAngleOnPlane(currentVector, axisNormal);
+                    //console.log("Current angle on plane: " + currentAngle);
+                    return currentAngle;
+                }
+
+                return 0.0;
+            }
+        }
+        //-------------------------------------------------------------------------------
 
         function init(){
             canvas = document.getElementById("webGLcanvas");
@@ -204,6 +631,8 @@
 
             simplePipeline = new SimplePipeline(gl);
             axisPipeline = new AxisPipeline(gl);
+            axisIdPipeline = new AxisIdPipeline(gl);
+            screenPipeline = new ScreenPipeline(gl);
 
             createMaterials();
             createShapes();
@@ -211,7 +640,10 @@
             mModel = m4.identity();
 
             //******** Create Axis ************
-            var axisGeometry = createAxisTranslation();
+            //var axisGeometry = createAxisTranslation();
+            //var axisGeometry = createAxisScale();
+            //var axisGeometry = createAxisRotation();
+            var axisGeometry = createAxis();
             numAxisIndices = axisGeometry.numIndices;
 
             axisVao = gl.createVertexArray();
@@ -232,55 +664,30 @@
             /*******************************
              * Instances
              * *******************************/
-            var transformArray = new Float32Array(16 * axisGeometry.numVertices); // 16 floats per matrix
+            /*var transformArray = new Float32Array(16 * axisGeometry.numVertices); // 16 floats per matrix
             for(let i = 0; i < axisGeometry.numVertices; i++){
                 transformArray.set(m4.identity(), i * 16);
-            }
-
-            const numInstances = 3;
-            const matrices = [];
-            var transformData = new Float32Array(16 * numInstances);
-            for (let i = 0; i < numInstances; ++i) {
-                //var mModel = m4.translation(transformInstances[i * 3], transformInstances[i * 3 + 1], transformInstances[i * 3 + 2]);
-                const byteOffsetToMatrix = i * 16 * 4;
-                const numFloatsForView = 16;
-                matrices.push(new Float32Array(
-                    transformData.buffer,
-                    byteOffsetToMatrix,
-                    numFloatsForView));
-            }
-
-            // update all the matrices
-            matrices.forEach((mat, ndx) => {
-                switch (ndx) {
-                    case 0:
-                        m4.identity(mat);
-                        break;
-                    case 1: // X axis
-                        m4.xRotation(Math.PI / 2.0, mat);
-                        break;
-                    case 2: // Z axis
-                        m4.zRotation(-Math.PI / 2.0, mat);
-                        break;
-                }
-            });
+            }*/
 
             transformBufferInst = webGLengine.createBuffer(gl);
 
-            gl.bindBuffer(gl.ARRAY_BUFFER, transformBufferInst);
-            gl.bufferData(gl.ARRAY_BUFFER, transformData.byteLength, gl.DYNAMIC_DRAW);
-            gl.bufferSubData(gl.ARRAY_BUFFER, 0, transformData);
-
+            updateAxisData();
 
             // color buffer
             var colors = [
+                1.0, 0.0, 0.0, 1.0,
                 0.0, 1.0, 0.0, 1.0,
-                0.0, 0.0, 1.0, 1.0,
-                1.0, 0.0, 0.0, 1.0
+                0.0, 0.0, 1.0, 1.0
             ];
 
             gl.bindBuffer(gl.ARRAY_BUFFER, colorVbo);
             gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
+
+            renderTarget = new RenderTarget(canvas.width, canvas.height, RenderTargetEnums.Use.Albedo8);
+
+            screenOff = new Screen(300, 250);
+            screenOff.setPosition([10.0, 10.0, 0.0]);
+            screenOff.setVisible(true);
 
             updateAndRender();
         }
@@ -302,22 +709,70 @@
                 camera.pitch(0.01);
             if(keypress[KeyCode.Down])
                 camera.pitch(-0.01);
+
+            if(keypress[KeyCode.T])
+                currentAxisMode = AxisMode.Translation;
+            else if(keypress[KeyCode.R])
+                currentAxisMode = AxisMode.Rotation;
+            else if(keypress[KeyCode.E])
+                currentAxisMode = AxisMode.Scale;
         }
 
+        /**
+         * Release click and stop dragging.
+         * @param {MouseEvent} event 
+         */
         function onMouseUp(event) {
             this.dragging = false;
+            mouse.down = false;
+            axisClicked = -1;
+            /*mouse.x = 0.0;
+            mouse.y = 0.0;*/
         }
 
+        /**
+         * Click and start dragging.
+         * @param {MouseEvent} event 
+         */
         function onMouseDown(event) {
             this.dragging = true;
             var x = event.clientX; // x coordinate of a mouse pointer
             var y = event.clientY; // y coordinate of a mouse pointer
-            var rect = event.target.getBoundingClientRect() ;
+            var rect = event.target.getBoundingClientRect();
+            
+            //x = ((x - rect.left) - canvas.width / 2) / (canvas.width / 2);
+            //y = (canvas.height / 2 - (y - rect.top)) / (canvas.height / 2);
 
-            x = ((x - rect.left) - canvas.width / 2) / (canvas.width / 2);
-            y = (canvas.height / 2 - (y - rect.top)) / (canvas.height / 2);
+            console.log("Mouse down at: " + x + ", " + y);
+            mouse.down = true;
+            mouse.x = x;
+            mouse.y = y;
+
+            /*const rect = gl.canvas.getBoundingClientRect();
+            const x = (mouse.x - rect.left) * (gl.canvas.width / rect.width);
+            const y = (mouse.y - rect.top) * (gl.canvas.height / rect.height);
+
+            mouse.x = x;
+            mouse.y = gl.canvas.height - y; // Inversión de eje Y
+            mouse.down = true;
+            console.log("Mouse down at: " + x + ", " + y);*/
+
+            /*const rect = gl.canvas.getBoundingClientRect();
+            debugger;
+            const x = (mouse.x - rect.left) * (gl.canvas.width / rect.width);
+            const y = (mouse.y - rect.top) * (gl.canvas.height / rect.height);
+
+            mouse.x = x;
+            mouse.y = gl.canvas.height - y; // Inversión de eje Y
+            mouse.down = true;
+            console.log("Mouse down at: " + x + ", " + y);*/
+            //console.log("axisClicked:: " + axisClicked);
         }
 
+        /**
+         * If dragging, calculates the difference in mouse position and rotates the camera.
+         * @param {MouseEvent} event 
+         */
         function onMouseMove(event){
             this.lastX = this.x;
             this.lastY = this.y;
@@ -325,21 +780,154 @@
             this.x = event.clientX;
             this.y = event.clientY;
 
+            mouse.x = this.x;
+            mouse.y = this.y;
+
             if (!this.dragging) 
                 return;
 
-            const dx = this.x - this.lastX;
-            const dy = this.y - this.lastY;
+            if(axisClicked == -1){
+                const dx = this.x - this.lastX;
+                const dy = this.y - this.lastY;
 
-            camera.yaw(dx * camera.getSpeedRotation());
-            camera.pitch(dy * camera.getSpeedRotation());
+                camera.yaw(dx * camera.getSpeedRotation());
+                camera.pitch(dy * camera.getSpeedRotation());
+            } else if(axisClicked != -1 && currentAxisMode != AxisMode.Rotation){
+                t2 = getClosestPointOnAxis(axisPosition, axisClicked);
+
+                const delta = t2 - t1;
+
+                if(currentAxisMode == AxisMode.Translation)
+                    axisPosition[axisClicked] += delta;
+                else if(currentAxisMode == AxisMode.Scale)
+                    axisScale[axisClicked] += delta * 0.01; // Smooth scaling
+
+                console.log("Axis position: " + axisPosition);
+                console.log("Axis scale: " + axisScale);
+
+                updateAxisData();
+            } else if(axisClicked != -1 && currentAxisMode == AxisMode.Rotation){
+                currentAngle = computeAngle();
+
+                axisRotation[axisClicked] = currentAngle - startAngle; // The change in rotation is (currentAngle - startAngle)
+                console.log("Axis rotation: " + axisRotation);
+            }
         }
 
         function update(){
             input();
+
+            screenOff.setTexture(renderTarget.getTexture(0));
+            screenOff.update();
         }   
 
         function render(){
+            if(mouse.down && axisClicked == -1){
+                renderTarget.bind();
+                gl.viewport(0, 0, renderTarget.getWidth(), renderTarget.getHeight());
+                //gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+                gl.depthMask(true);
+                gl.clearColor(0.0, 0.0, 0.0, 1.0);
+                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+                
+                axisIdPipeline.use();
+
+                gl.disable(gl.CULL_FACE);
+                gl.disable(gl.BLEND);
+                gl.disable(gl.DITHER);
+
+                gl.bindVertexArray(axisVao);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, transformBufferInst);
+
+                gl.vertexAttribPointer(axisIdPipeline.getAttributeLocation("in_mModel"), 4, gl.FLOAT, gl.FALSE, 16 * Float32Array.BYTES_PER_ELEMENT, 0);
+                gl.vertexAttribPointer(axisIdPipeline.getAttributeLocation("in_mModel") + 1, 4, gl.FLOAT, gl.FALSE, 16 * Float32Array.BYTES_PER_ELEMENT, 4 * Float32Array.BYTES_PER_ELEMENT);
+                gl.vertexAttribPointer(axisIdPipeline.getAttributeLocation("in_mModel") + 2, 4, gl.FLOAT, gl.FALSE, 16 * Float32Array.BYTES_PER_ELEMENT, 8 * Float32Array.BYTES_PER_ELEMENT);
+                gl.vertexAttribPointer(axisIdPipeline.getAttributeLocation("in_mModel") + 3, 4, gl.FLOAT, gl.FALSE, 16 * Float32Array.BYTES_PER_ELEMENT, 12 * Float32Array.BYTES_PER_ELEMENT);
+
+                gl.enableVertexAttribArray(axisIdPipeline.getAttributeLocation("in_mModel"));
+                gl.enableVertexAttribArray(axisIdPipeline.getAttributeLocation("in_mModel") + 1);
+                gl.enableVertexAttribArray(axisIdPipeline.getAttributeLocation("in_mModel") + 2);
+                gl.enableVertexAttribArray(axisIdPipeline.getAttributeLocation("in_mModel") + 3);
+
+                gl.vertexAttribDivisor(axisIdPipeline.getAttributeLocation("in_mModel"), 1);
+                gl.vertexAttribDivisor(axisIdPipeline.getAttributeLocation("in_mModel") + 1, 1);
+                gl.vertexAttribDivisor(axisIdPipeline.getAttributeLocation("in_mModel") + 2, 1);
+                gl.vertexAttribDivisor(axisIdPipeline.getAttributeLocation("in_mModel") + 3, 1);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, axisVbo);
+
+                gl.vertexAttribPointer(
+                    axisIdPipeline.getAttributeLocation("in_position"), 
+                    3, 
+                    gl.FLOAT, 
+                    gl.FALSE, 
+                    3 * Float32Array.BYTES_PER_ELEMENT, 
+                    0
+                );
+
+                gl.enableVertexAttribArray(axisIdPipeline.getAttributeLocation("in_position"));
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, colorVbo);
+
+                gl.vertexAttribPointer(
+                    axisIdPipeline.getAttributeLocation("in_color"), 
+                    4, 
+                    gl.FLOAT, 
+                    gl.FALSE, 
+                    4 * Float32Array.BYTES_PER_ELEMENT, 
+                    0
+                );
+
+                gl.enableVertexAttribArray(axisIdPipeline.getAttributeLocation("in_color"));
+
+                gl.vertexAttribDivisor(axisIdPipeline.getAttributeLocation("in_color"), 1);
+
+                axisIdPipeline.setUniformMatrix4x4("u_mProj", camera.getProjectionMatrix());
+                axisIdPipeline.setUniformMatrix4x4("u_mView", camera.getViewMatrix());
+
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, axisIbo);
+                //gl.drawElementsInstanced(gl.TRIANGLES, numAxisIndices, gl.UNSIGNED_SHORT, 0, 3);
+
+                if(currentAxisMode == AxisMode.Translation)
+                    gl.drawElementsInstanced(gl.TRIANGLES, numIndicesAxisTranslation, gl.UNSIGNED_SHORT, 0, 3);
+                else if(currentAxisMode == AxisMode.Scale)
+                    gl.drawElementsInstanced(gl.TRIANGLES, numIndicesAxisScale, gl.UNSIGNED_SHORT, 2 * numIndicesAxisTranslation, 3);
+                else if(currentAxisMode == AxisMode.Rotation)
+                    gl.drawElementsInstanced(gl.TRIANGLES, numIndicesAxisRotation, gl.UNSIGNED_SHORT, 2 * (numIndicesAxisTranslation + numIndicesAxisScale), 3);
+
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+                gl.bindBuffer(gl.ARRAY_BUFFER, null);
+                gl.bindVertexArray(null);
+
+                const pixel = new Uint8Array(4);
+                
+                // Invert Y because WebGL starts from the bottom and the DOM from the top
+                gl.readPixels(mouse.x, gl.canvas.height - mouse.y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+                
+                if(pixel[0] > 0) 
+                    axisClicked = 0; // X axis
+                else if(pixel[1] > 0) 
+                    axisClicked = 1; // Y axis
+                else if(pixel[2] > 0) 
+                    axisClicked = 2; // Z axis
+
+                console.log("Clicked pixel RGBA: " + pixel[0] + ", " + pixel[1] + ", " + pixel[2] + ", " + pixel[3]);
+
+                if(axisClicked !== -1 && currentAxisMode != AxisMode.Rotation){
+                    t1 = getClosestPointOnAxis(axisPosition, axisClicked);
+                } else if(currentAxisMode == AxisMode.Rotation){
+                    startAngle = computeAngle();
+                }
+
+                gl.enable(gl.CULL_FACE);
+                gl.enable(gl.BLEND);
+                gl.enable(gl.DITHER);
+
+                renderTarget.unbind();
+                axisIdPipeline.unuse();
+            }
+
             //-------------- Render Scene --------------
             gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
             gl.clearColor(0.4, 0.6, 0.9, 1.0);
@@ -360,36 +948,9 @@
             grid.render(simplePipeline, RenderMode.Lines); 
 
             simplePipeline.unuse();
+            
+            //*********************************************************
 
-            /*axisPipeline.use();
-
-            //gl.disable(gl.CULL_FACE);
-
-            axisPipeline.setUniformMatrix4x4("u_mProj", camera.getProjectionMatrix());
-            axisPipeline.setUniformMatrix4x4("u_mView", camera.getViewMatrix());
-            axisPipeline.setUniformMatrix4x4("u_mModel", mModel);
-            axisPipeline.setUniformLocationColor([0.0, 1.0, 0.0, 1.0]);
-
-            gl.bindVertexArray(axisVao);
-            gl.bindBuffer(gl.ARRAY_BUFFER, axisVbo);
-
-            gl.vertexAttribPointer(
-                axisPipeline.getAttributeLocation("in_position"), 
-                3, 
-                gl.FLOAT, 
-                gl.FALSE, 
-                0, //3 * Float32Array.BYTES_PER_ELEMENT, 
-                0
-            );
-
-            gl.enableVertexAttribArray(axisPipeline.getAttributeLocation("in_position"));
-
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, axisIbo);
-            gl.drawElements(gl.TRIANGLES, numAxisIndices, gl.UNSIGNED_SHORT, 0);
-
-            axisPipeline.unuse();
-
-            gl.bindVertexArray(null);*/
             axisPipeline.use();
             gl.disable(gl.CULL_FACE);
 
@@ -438,14 +999,21 @@
                 0
             );
 
-            gl.enableVertexAttribArray(axisPipeline.getAttributeLocation("in_position"));
+            //gl.enableVertexAttribArray(axisPipeline.getAttributeLocation("in_position"));
 
-            gl.uniformMatrix4fv(axisPipeline.getUniformLocation("u_mProj"), false, camera.getProjectionMatrix());
-            gl.uniformMatrix4fv(axisPipeline.getUniformLocation("u_mView"), false, camera.getViewMatrix());
-            //axisPipeline.setUniformLocationColor([0.0, 1.0, 0.0, 1.0]);
+            axisPipeline.setUniformMatrix4x4("u_mProj", camera.getProjectionMatrix());
+            axisPipeline.setUniformMatrix4x4("u_mView", camera.getViewMatrix());
+            axisPipeline.setUniformInt("u_highlightAxis", axisClicked);
 
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, axisIbo);
-            gl.drawElementsInstanced(gl.TRIANGLES, numAxisIndices, gl.UNSIGNED_SHORT, 0, 3);
+            if(currentAxisMode == AxisMode.Translation)
+                gl.drawElementsInstanced(gl.TRIANGLES, numIndicesAxisTranslation, gl.UNSIGNED_SHORT, 0, 3);
+            else if(currentAxisMode == AxisMode.Scale)
+                gl.drawElementsInstanced(gl.TRIANGLES, numIndicesAxisScale, gl.UNSIGNED_SHORT, 2 * numIndicesAxisTranslation, 3);
+            else if(currentAxisMode == AxisMode.Rotation)
+                gl.drawElementsInstanced(gl.TRIANGLES, numIndicesAxisRotation, gl.UNSIGNED_SHORT, 2 * (numIndicesAxisTranslation + numIndicesAxisScale), 3);
+
+            //gl.drawElementsInstanced(gl.TRIANGLES, numAxisIndices, gl.UNSIGNED_SHORT, 0, 3);
 
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
             gl.bindBuffer(gl.ARRAY_BUFFER, null);
@@ -454,6 +1022,8 @@
             axisPipeline.unuse();
 
             gl.enable(gl.CULL_FACE);
+
+            screenOff.render(screenPipeline);
         }
 
         function updateAndRender(){

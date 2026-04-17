@@ -5,6 +5,16 @@
 var keypress = [];
 
 /**
+ * Object to register the mouse position and if it's down
+ * @author César Himura
+ */
+var mouse = {
+	x: 0.0,
+	y: 0.0,
+	down: false
+};
+
+/**
  * Register the keys down
  * @param {KeyCode} e key code
  */

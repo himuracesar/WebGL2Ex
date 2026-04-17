@@ -13,6 +13,8 @@ class RenderTarget {
         this.height = height;
         this.use = use;
 
+        this.framebuffer = gl.createFramebuffer();
+
         if(use == RenderTargetEnums.Use.ShadowMap){
             const shadowMap = gl.createTexture();
             gl.bindTexture(gl.TEXTURE_2D, shadowMap);
@@ -25,7 +27,6 @@ class RenderTarget {
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
             // 2. Crear Framebuffer Object (FBO)
-            this.framebuffer = gl.createFramebuffer();
             gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
 
             // Adjuntar la textura de profundidad al FBO
@@ -39,7 +40,6 @@ class RenderTarget {
             gl.drawBuffers([gl.NONE]);
             gl.readBuffer(gl.NONE);
         } else if(use == RenderTargetEnums.Use.StencilBuffer){
-            this.framebuffer = gl.createFramebuffer();
             gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
 
             // Textura donde "hornearemos" el stencil
@@ -57,6 +57,31 @@ class RenderTarget {
             gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, dsBuffer);
 
             gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+        } else if(use == RenderTargetEnums.Use.Albedo8){
+            gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
+            
+            // Textura para el color (RGBA8)
+            const targetTexture = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, targetTexture);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+            //gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, targetTexture, 0);
+
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+            var texture = new Texture();
+            texture.setWebGLTexture(targetTexture);
+            this.textures.push(texture);
+
+            // Renderbuffer para la profundidad (necesario para que los ejes se ocluyan bien entre ellos)
+            const depthBuffer = gl.createRenderbuffer();
+            gl.bindRenderbuffer(gl.RENDERBUFFER, depthBuffer);
+            gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
+            gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depthBuffer);
         }
 
         //this.addTexture(null);

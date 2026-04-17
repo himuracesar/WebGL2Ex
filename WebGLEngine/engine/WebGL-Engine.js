@@ -42,7 +42,8 @@ const RenderTargetEnums = Object.freeze({
     Custom : 0,
     Albedo : 1,
     ShadowMap : 2,
-    StencilBuffer : 3
+    StencilBuffer : 3,
+    Albedo8 : 4
   })
 });
 
