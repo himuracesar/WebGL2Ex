@@ -1,0 +1,497 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scene Editor - WebGL2 Engine</title>
+    <style>
+        :root {
+            --tp-base-background-color: hsla(0, 0%, 10%, 0.8);
+            --tp-base-shadow-color: hsla(0, 0%, 0%, 0.2);
+            --tp-button-background-color: hsla(0, 0%, 80%, 1);
+            --tp-button-background-color-active: hsla(0, 0%, 100%, 1);
+            --tp-button-background-color-focus: hsla(0, 0%, 95%, 1);
+            --tp-button-background-color-hover: hsla(0, 0%, 85%, 1);
+            --tp-button-foreground-color: hsla(0, 0%, 0%, 0.8);
+            --tp-container-background-color: hsla(0, 0%, 0%, 0.3);
+            --tp-container-background-color-active: hsla(0, 0%, 0%, 0.6);
+            --tp-container-background-color-focus: hsla(0, 0%, 0%, 0.5);
+            --tp-container-background-color-hover: hsla(0, 0%, 0%, 0.4);
+            --tp-container-foreground-color: hsla(0, 0%, 100%, 0.5);
+            --tp-groove-foreground-color: hsla(0, 0%, 0%, 0.2);
+            --tp-input-background-color: hsla(0, 0%, 0%, 0.3);
+            --tp-input-background-color-active: hsla(0, 0%, 0%, 0.6);
+            --tp-input-background-color-focus: hsla(0, 0%, 0%, 0.5);
+            --tp-input-background-color-hover: hsla(0, 0%, 0%, 0.4);
+            --tp-input-foreground-color: hsla(0, 0%, 100%, 0.5);
+            --tp-label-foreground-color: hsla(0, 0%, 100%, 0.5);
+            --tp-monitor-background-color: hsla(0, 0%, 0%, 0.3);
+            --tp-monitor-foreground-color: hsla(0, 0%, 100%, 0.3);
+        }
+
+        /*:root {
+            --tp-base-background-color: hsl(0, 0%, 10%);
+            --tp-base-shadow-color: hsl(0, 0%, 0%);
+            --tp-button-background-color: hsla(0, 0%, 80%);
+            --tp-button-background-color-active: hsl(0, 0%, 100%);
+            --tp-button-background-color-focus: hsl(0, 0%, 95%);
+            --tp-button-background-color-hover: hsl(0, 0%, 85%);
+            --tp-button-foreground-color: hsl(0, 0%, 0%);
+            --tp-container-background-color: hsl(0, 0%, 0%);
+            --tp-container-background-color-active: hsl(0, 0%, 0%);
+            --tp-container-background-color-focus: hsl(0, 0%, 0%);
+            --tp-container-background-color-hover: hsl(0, 0%, 0%);
+            --tp-container-foreground-color: hsl(0, 0%, 100%);
+            --tp-groove-foreground-color: hsla(0, 0%, 0%);
+            --tp-input-background-color: hsla(0, 0%, 0%);
+            --tp-input-background-color-active: hsl(0, 0%, 0%);
+            --tp-input-background-color-focus: hsl(0, 0%, 0%);
+            --tp-input-background-color-hover: hsl(0, 0%, 0%);
+            --tp-input-foreground-color: hsl(0, 0%, 100%);
+            --tp-label-foreground-color: hsl(0, 0%, 100%);
+            --tp-monitor-background-color: hsl(0, 0%, 0%);
+            --tp-monitor-foreground-color: hsl(0, 0%, 100%);
+        }*/
+
+        /*body { margin: 0; background: #111; overflow: hidden; font-family: sans-serif; }*/
+        /*canvas { width: 100vw; height: 100vh; display: block; }*/
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+            transform: translateZ(0); /* Force GPU Layer */
+        }
+        
+        /* Containers for the Widgets */
+        .widget-pane {
+            /*position: fixed;*/
+            position: absolute;
+            z-index: 10;
+            width: 260px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            /* Avoid that events affect the canvas if not necessary */
+            pointer-events: auto; 
+
+            transform: translateZ(0); /* Crea un nuevo stacking context en GPU */
+            backface-visibility: hidden;
+            perspective: 1000;
+            will-change: transform, opacity;
+        }
+
+        #ui-camera { top: 10px; right: 300px; }
+        #ui-geometry { top: 10px; right: 20px; }
+        #ui-stats { bottom: 20px; left: 20px; }
+        
+        .label { position: fixed; bottom: 10px; right: 20px; color: #555; font-size: 12px; }
+    </style>
+
+    <link rel="icon" type="image/x-icon" href="/images/favicon.ico">
+
+    <script type="text/javascript" src="engine/WebGL-Engine.js"></script>
+    <script type="text/javascript" src="engine/pipeline/Pipeline.js"></script>
+    <script type="text/javascript" src="engine/pipeline/AxisPipeline.js"></script>
+    <script type="text/javascript" src="engine/pipeline/AxisIdPipeline.js"></script>
+    <script type="text/javascript" src="engine/pipeline/GridPipeline.js"></script>
+    <script type="text/javascript" src="engine/pipeline/SimplePipeline.js"></script>
+
+    <script>
+        var cameraState = {
+            position: {x: 0.0, y: 0.0, z: 0.0},
+            speed: 8.0,
+            nearPlane: 0.1,
+            farPlane: 4000.0,
+            speedRotation: 0.01
+        };
+    </script>
+
+    <script type="module">
+        import {Pane} from '../../WebGLEngine/engine/lib/tweakpane-4.0.5.js';
+
+        // --- Widget 1: Camera  ---
+        const paneCam = new Pane({ container: document.getElementById('ui-camera'), title: '🎥 Camera' });
+        paneCam.addBinding(cameraState, 'position', { label: 'Position' }).on('change', emitUI);
+        paneCam.addBinding(cameraState, 'speed', { label: 'Speed', min: 1.0, max: 20.0 }).on('change', emitUI);
+        paneCam.addBinding(cameraState, 'nearPlane', { label: 'Near Plane', min: 0.1, max: 10.0 }).on('change', emitUI);
+        paneCam.addBinding(cameraState, 'farPlane', { label: 'Far Plane', min: 100.0, max: 10000.0 }).on('change', emitUI);
+        paneCam.addBinding(cameraState, 'speedRotation', { label: 'Speed Rotation', min: 0.0, max: 100.0 }).on('change', emitUI);
+
+        const geometry = {
+            position: {x: 0.0, y: 0.0, z: 0.0},
+            rotation: {x: 0.0, y: 0.0, z: 0.0},
+            scale: {x: 1.0, y: 1.0, z: 1.0}
+        };
+
+        // --- Widget 2: Geometry ---
+        const paneGeom = new Pane({ container: document.getElementById('ui-geometry'), title: '🔺 Geometry' });
+        paneGeom.addBinding(geometry, 'position', { label: 'Position' }).on('change', emitUI);
+        paneGeom.addBinding(geometry, 'rotation', { label: 'Rotation' }).on('change', emitUI);
+        paneGeom.addBinding(geometry, 'scale', { label: 'Scale' }).on('change', emitUI);
+
+        // Send data to the engine
+        function emitUI() {
+            window.dispatchEvent(new CustomEvent(EVT_UI, { detail: cameraState }));
+            //window.dispatchEvent(new CustomEvent(EVT_UI, { detail: geometry }));
+        }
+
+        // Recibir FPS del motor para el gráfico
+        /*window.addEventListener(EVT_DATA, (e) => {
+            //cam.fps = e.detail.fps;
+            cam.position.x = e.detail.x;
+            cam.position.y = e.detail.y;
+            cam.position.z = e.detail.z;
+
+            paneCam.refresh();
+        });*/
+
+        // Refresh UI at a lower rate (e.g., 10Hz or 15Hz is enough for the human eye)
+        setInterval(() => {
+            paneCam.refresh();
+        }, 100);
+
+        // Emit initial state
+        emitUI();
+    </script>
+
+    <script type="text/javascript" src="../../WebGLEngine/engine/DogGizmo.js"></script>
+    <script type="text/javascript" src="../../WebGLEngine/engine/DogGrid.js"></script>
+    <script type="text/javascript" src="../../WebGLEngine/engine/Ray.js"></script>
+    <script type="text/javascript" src="../../WebGLEngine/engine/Screen.js"></script>
+    <script type="text/javascript" src="../../WebGLEngine/engine/pipeline/ScreenPipeline.js"></script>
+
+    <script type="text/javascript" src="engine/Shape.js"></script>
+
+</head>
+<body onload="init();">
+    <!--canvas id="webGLcanvas"-->
+    <canvas id="webGLcanvas" width="1300" height="900">
+        Your browser does not support the HTML5 canvas element.
+    </canvas>
+
+    <!--canvas id="webGLcanvas">
+        Your browser does not support the HTML5 canvas element.
+    </canvas-->
+
+    <!-- Containers for Tweakpane -->
+    <div id="ui-camera" class="widget-pane"></div>
+    <div id="ui-geometry" class="widget-pane"></div>
+    
+
+    <script type="text/javascript">
+        var gl;
+        var canvas;
+        var camera;
+
+        var x = 0;
+        var y = 0;
+        var lastX = 0;
+        var lastY = 0;
+        var dragging = false;
+
+        var projectMode = ProjectMode.Development;
+
+        //------------- Meshes -------------
+        var grid;
+        var gizmo;
+        var cube;
+
+        //------------- Material -------------
+        var m_gray;
+        var m_whiteGray;
+
+        //------------- Pipelines -------------
+        var simplePipeline;
+        var screenPipeline;
+
+        //------------- Screen -------------
+        var screenAxis;
+
+        //------------- Render Target -------------
+        var rtAxis;
+
+        //------------- Input -------------
+        /**
+         * Release click and stop dragging.
+         * @param {MouseEvent} event 
+         */
+        function onMouseUp(event) {
+            this.dragging = false;
+            gizmo.reset();
+            mouse.down = false;
+        }
+
+        /**
+         * Click and start dragging.
+         * @param {MouseEvent} event 
+         */
+        function onMouseDown(event) {
+            this.dragging = true;
+            var x = event.clientX; // x coordinate of a mouse pointer
+            var y = event.clientY; // y coordinate of a mouse pointer
+            var rect = event.target.getBoundingClientRect();
+            
+            //x = ((x - rect.left) - canvas.width / 2) / (canvas.width / 2);
+            //y = (canvas.height / 2 - (y - rect.top)) / (canvas.height / 2);
+
+            //console.log("Mouse down at: " + x + ", " + y);
+            mouse.down = true;
+            mouse.x = x;
+            mouse.y = y;
+
+            gizmo.checkAxisClicked(rtAxis);
+        }
+
+        /**
+         * If dragging, calculates the difference in mouse position and rotates the camera.
+         * @param {MouseEvent} event 
+         */
+        function onMouseMove(event){
+            this.lastX = this.x;
+            this.lastY = this.y;
+
+            this.x = event.clientX;
+            this.y = event.clientY;
+
+            mouse.x = this.x;
+            mouse.y = this.y;
+
+            if (!this.dragging) 
+                return;
+
+            if(!gizmo.computeMovement(rtAxis)){
+                const dx = this.x - this.lastX;
+                const dy = this.y - this.lastY;
+
+                camera.yaw(dx * camera.getSpeedRotation());
+                camera.pitch(dy * camera.getSpeedRotation());
+            }
+        }
+
+        function input(){
+            if(keypress[KeyCode.W])
+                camera.moveForward(1);
+            if(keypress[KeyCode.S])
+                camera.moveForward(-1);
+            if(keypress[KeyCode.A])
+                camera.strafe(-1);
+            if(keypress[KeyCode.D])
+                camera.strafe(1);
+            if(keypress[KeyCode.Left])
+                camera.yaw(0.01);
+            if(keypress[KeyCode.Right])
+                camera.yaw(-0.01);
+            if(keypress[KeyCode.Up])
+                camera.pitch(0.01);
+            if(keypress[KeyCode.Down])
+                camera.pitch(-0.01);
+
+            if(keypress[KeyCode.T])
+                gizmo.setAxisMode(gizmo.AxisMode.Translation);
+            else if(keypress[KeyCode.R])
+                gizmo.setAxisMode(gizmo.AxisMode.Rotation);
+            else if(keypress[KeyCode.E])
+                gizmo.setAxisMode(gizmo.AxisMode.Scale);
+        }
+
+        //------------- End Input -------------
+
+        /**
+         * Create basic shapes.
+         */
+        function createShapes(){
+            //grid = new DogGrid();
+
+            var shape = new Shape();
+            
+            var descriptor = {};
+            descriptor.delta = [100.0, 0.0, 100.0];
+            descriptor.numVertRows = 50;
+            descriptor.numVertCols = 50;
+            descriptor.position = [0.0, 0.0, 0.0];
+            descriptor.texScale = 0.5;
+            
+            grid = shape.createGrid(descriptor);
+            grid.setMaterial(0, m_gray);
+            grid.getSubmesh(0).materialIndex = 0;
+
+            descriptor = {};
+            descriptor.width = 50.0;
+            descriptor.height = 50.0;
+            descriptor.depth = 50.0;
+
+            cube = shape.createCube(descriptor);
+            cube.setMaterial(0, m_whiteGray);
+            cube.getSubmesh(0).materialIndex = 0;
+            cube.setPosition([0.0, 100.0, -100.0]);
+        }
+
+        /**
+         * Create materials.
+         */
+        function createMaterials(){
+            m_gray = new Material();
+            m_gray.setDiffuseColor([0.5, 0.5, 0.5, 1.0]);
+            m_gray.setAmbientColor([0.5, 0.5, 0.5, 1.0]);
+            m_gray.setSpecularColor([1.0, 1.0, 1.0, 1.0]);
+            m_gray.setSpecularPower(32.0);
+            m_gray.setBindingPoint(0);
+            m_gray.setName("M_GRAY");
+            m_gray.setHasTexture(false);
+            m_gray.setMetallness(0.5);
+            m_gray.setRoughness(1.0);
+            m_gray.setFresnel(0.0);
+
+            m_whiteGray = new Material();
+            m_whiteGray.setDiffuseColor([0.25, 0.25, 0.25, 1.0]);
+            m_whiteGray.setAmbientColor([0.25, 0.25, 0.25, 1.0]);
+            m_whiteGray.setSpecularColor([1.0, 1.0, 1.0, 1.0]);
+            m_whiteGray.setSpecularPower(32.0);
+            m_whiteGray.setBindingPoint(0);
+            m_whiteGray.setName("M_WHITEGRAY");
+            m_whiteGray.setMetallness(0.5);
+            m_whiteGray.setRoughness(1.0);
+            m_whiteGray.setFresnel(0.0);
+            m_whiteGray.setHasTexture(false);
+            m_whiteGray.setDiffuseTextureIndex(0);
+        }
+
+        function updateGUI(){
+            if(camera != null){
+                cameraState.position.x = camera.getPosition()[0];
+                cameraState.position.y = camera.getPosition()[1];
+                cameraState.position.z = camera.getPosition()[2];
+                cameraState.speed = camera.getSpeed();
+                cameraState.nearPlane = camera.getNearPlane();
+                cameraState.farPlane = camera.getFarPlane();
+                cameraState.speedRotation = camera.getSpeedRotation();
+            }
+        }
+
+        function init(){
+            canvas = document.getElementById("webGLcanvas");
+
+            var descriptor = {
+                stencil: false,              // Necesario para tus máscaras
+                antialias: false,           // Lo desactivamos para usar un post-process propio
+                depth: true,                // Necesario para 3D
+                alpha: false,               // Optimizamos el blending con el DOM
+                powerPreference: "high-performance", // Exigimos la mejor GPU disponible
+                premultipliedAlpha: false,
+                desynchronized: true        // WebGL2: Reduce la latencia de input (baja latencia)
+            };
+
+            gl = webGLengine.initWebGL(canvas, descriptor);
+            //webGLengine.autoResizeCanvas(canvas);
+
+            //webGLengine.auditStencilBuffer(gl);
+
+            camera = new Camera(gl);
+            camera.setPosition([40.0, 100.0, 140.0]);
+            camera.setSpeed(8.0);
+            camera.setFarPlane(4000.0);
+
+            window.onkeydown = event => this.onKeyDown(event);
+            window.onkeyup = event => this.onKeyUp(event);
+            canvas.onmouseup = event => this.onMouseUp(event);
+            canvas.onmousedown = event => this.onMouseDown(event);
+            canvas.onmousemove = event => this.onMouseMove(event);
+
+            simplePipeline = new SimplePipeline(gl);
+            screenPipeline = new ScreenPipeline(gl);
+
+            createMaterials();
+            createShapes();
+
+            gizmo = new DogGizmo();
+
+            rtAxis = new RenderTarget(canvas.width, canvas.height, RenderTargetEnums.Use.Albedo8);
+
+            screenAxis = new Screen(300, 250);
+            screenAxis.setPosition([10.0, 10.0, 0.0]);
+            screenAxis.setVisible(true);
+            screenAxis.setTexture(rtAxis.getTexture(0));
+            
+            updateAndRender();
+        }
+
+        function update(){
+            input();
+            
+            screenAxis.update();
+
+            updateGUI();
+
+           /*window.dispatchEvent(new CustomEvent(EVT_DATA, { 
+                detail: { 
+                    //fps: 1000 / dt 
+                    x: (camera != null) ? camera.getPosition()[0] : 0.0,
+                    y: (camera != null) ? camera.getPosition()[1] : 0.0,
+                    z: (camera != null) ? camera.getPosition()[2] : 0.0
+                } 
+            }));*/
+        }   
+
+        function render(){
+            //-------------- Render Scene --------------
+            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+            gl.clearColor(0.4, 0.6, 0.9, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            gl.enable(gl.DEPTH_TEST);
+            gl.enable(gl.CULL_FACE);
+
+            gl.cullFace(gl.BACK);
+
+            simplePipeline.use();
+
+            simplePipeline.setUniformMatrix4x4("u_mProj", camera.getProjectionMatrix());
+            simplePipeline.setUniformMatrix4x4("u_mView", camera.getViewMatrix());
+            simplePipeline.setUniformVector3("u_camera_position", camera.getPosition());
+            simplePipeline.setColor([0.8, 0.8, 0.8, 1.0]);
+
+            grid.render(simplePipeline, RenderMode.Lines); 
+
+            simplePipeline.setColor([1.0, 0.0, 0.0, 1.0]);
+            cube.render(simplePipeline);
+
+            simplePipeline.unuse();
+            //grid.render(camera);
+            
+            gizmo.render(camera, rtAxis);
+            //if(mouse.down){
+                //gizmo.render(camera, rtAxis);
+            /*} else {
+                gizmo.render(camera, null);
+            }*/
+
+            //screenAxis.render(screenPipeline);
+        }
+
+        function updateAndRender(){
+            update();
+            render();
+
+            requestAnimationFrame(updateAndRender);
+        }
+
+
+        // Events' names for clean communication
+        const EVT_DATA = 'engine-data-update';
+        const EVT_UI = 'ui-params-change';
+
+        // Listen to the UI
+        window.addEventListener(EVT_UI, (e) => {
+            const d = e.detail;
+            if(camera != null){
+                camera.setPosition([d.position.x, d.position.y, d.position.z]);
+                camera.setSpeed(d.speed);
+                camera.setNearPlane(d.nearPlane);
+                camera.setFarPlane(d.farPlane);
+                camera.setSpeedRotation(d.speedRotation);
+            }
+        });
+
+    </script>
+    
+</body>
+</html>

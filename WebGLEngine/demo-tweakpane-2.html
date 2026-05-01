@@ -1,0 +1,81 @@
+<canvas id="glCanvas" style="width: 100vw; height: 100vh; display: block;"></canvas>
+
+<script type="module">
+  //import { Pane } from 'https://jsdelivr.net';
+  import {Pane} from '../../WebGLEngine/engine/lib/tweakpane-4.0.5.js';
+
+  // --- 1. CONFIGURACIÓN DE PARÁMETROS ---
+  const params = {
+    color: {r: 0, g: 0.5, b: 1},
+    posX: 0,
+    animate: false
+  };
+
+  // --- 2. SETUP DE TWEAKPANE ---
+  const pane = new Pane({ title: 'Control WebGL2' });
+  
+  pane.addBinding(params, 'color', { color: {type: 'float'} });
+  const xInput = pane.addBinding(params, 'posX', { min: -1, max: 1 });
+  pane.addBinding(params, 'animate');
+
+  // --- 3. SETUP WEBGL2 ---
+  const canvas = document.getElementById('glCanvas');
+  const gl = canvas.getContext('webgl2');
+
+  // Shaders básicos
+  const vs = `#version 300 es
+    in vec2 a_pos; uniform float u_posX;
+    void main() { gl_Position = vec4(a_pos.x + u_posX, a_pos.y, 0, 1); }`;
+  const fs = `#version 300 es
+    precision highp float; uniform vec3 u_color; out vec4 outCol;
+    void main() { outCol = vec4(u_color, 1); }`;
+
+  const program = createProgram(gl, vs, fs);
+  const uColorLoc = gl.getUniformLocation(program, 'u_color');
+  const uPosLoc = gl.getUniformLocation(program, 'u_posX');
+
+  // Geometría (un simple cuadrado)
+  const posBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-0.2, -0.2, 0.2, -0.2, -0.2, 0.2, 0.2, 0.2]), gl.STATIC_DRAW);
+  const vao = gl.createVertexArray();
+  gl.bindVertexArray(vao);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+  // --- 4. BUCLE DE RENDERIZADO Y LÓGICA BIDIRECCIONAL ---
+  function render(time) {
+    // LÓGICA "VICEVERSA": Modificar valor desde el código (animación)
+    if (params.animate) {
+      params.posX = Math.sin(time * 0.005); 
+      // IMPORTANTE: Refresca la UI para que refleje el cambio interno
+      pane.refresh(); 
+    }
+
+    // Renderizado
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.clearColor(0.1, 0.1, 0.1, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    gl.useProgram(program);
+    gl.uniform3f(uColorLoc, params.color.r, params.color.g, params.color.b);
+    gl.uniform1f(uPosLoc, params.posX);
+    
+    gl.bindVertexArray(vao);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+    requestAnimationFrame(render);
+  }
+  requestAnimationFrame(render);
+
+  // Helper para crear programa
+  function createProgram(gl, vsS, fsS) {
+    const s = (t, src) => {
+      const sh = gl.createShader(t); gl.shaderSource(sh, src); gl.compileShader(sh); return sh;
+    };
+    const p = gl.createProgram();
+    gl.attachShader(p, s(gl.VERTEX_SHADER, vsS));
+    gl.attachShader(p, s(gl.FRAGMENT_SHADER, fsS));
+    gl.linkProgram(p); return p;
+  }
+</script>

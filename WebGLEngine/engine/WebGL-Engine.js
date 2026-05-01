@@ -61,7 +61,7 @@ include("/WebGLEngine/engine/KeyCode.js");
 include("/WebGLEngine/engine/StaticMesh.js");
 include("/WebGLEngine/engine/Submesh.js");
 include("/WebGLEngine/engine/Material.js");
-//include("/WebGLEngine/engine/Transform.js");
+include("/WebGLEngine/engine/DogTransform.js");
 include("/WebGLEngine/engine/texture/Texture.js");
 include("/WebGLEngine/engine/bounding/BoundingVolume.js");
 include("/WebGLEngine/engine/bounding/BoundingSphere.js");

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>WebGL2 + Tweakpane Widgets</title>
+    <style>
+        body { margin: 0; background: #111; overflow: hidden; font-family: sans-serif; }
+        canvas { width: 100vw; height: 100vh; display: block; }
+
+        /* Contenedores de los Widgets */
+        .widget-pane {
+            position: fixed;
+            z-index: 10;
+            width: 260px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        #ui-geometry { top: 20px; right: 20px; }
+        #ui-effects { top: 20px; left: 20px; }
+        #ui-stats { bottom: 20px; left: 20px; }
+        
+        .label { position: fixed; bottom: 10px; right: 20px; color: #555; font-size: 12px; }
+    </style>
+</head>
+<body>
+
+    <canvas id="webgl-canvas"></canvas>
+    <div class="label">WebGL2 + Tweakpane Multi-Widget Demo</div>
+
+    <!-- Contenedores para Tweakpane -->
+    <div id="ui-geometry" class="widget-pane"></div>
+    <div id="ui-effects" class="widget-pane"></div>
+    <div id="ui-stats" class="widget-pane"></div>
+
+    <script>
+        // Nombres de eventos para comunicación limpia
+        const EVT_DATA = 'engine-data-update';
+        const EVT_UI = 'ui-params-change';
+    </script>
+
+    <!-- UI MODULE (Tweakpane) -->
+    <script type="module">
+        //import { Pane } from 'https://jsdelivr.net';
+        import {Pane} from '../../WebGLEngine/engine/lib/tweakpane-4.0.5.js';
+
+        // Estado local de la UI
+        const state = {
+            scale: 0.5,
+            rotationSpeed: 1.0,
+            color: {r: 0, g: 0.8, b: 1},
+            brightness: 1.0,
+            fps: 0
+        };
+
+        // --- Widget 1: Geometría (Derecha) ---
+        const paneGeo = new Pane({ container: document.getElementById('ui-geometry'), title: '🔺 Objeto 3D' });
+        paneGeo.addBinding(state, 'scale', { min: 0.1, max: 2.0 }).on('change', emitUI);
+        paneGeo.addBinding(state, 'rotationSpeed', { min: 0, max: 5 }).on('change', emitUI);
+
+        // --- Widget 2: Efectos (Izquierda) ---
+        const paneFX = new Pane({ container: document.getElementById('ui-effects'), title: '✨ Post-Proceso' });
+        paneFX.addBinding(state, 'color', { color: {type: 'float'} }).on('change', emitUI);
+        paneFX.addBinding(state, 'brightness', { min: 0, max: 2 }).on('change', emitUI);
+
+        // --- Widget 3: Stats (Abajo Izquierda) ---
+        const paneStats = new Pane({ container: document.getElementById('ui-stats'), title: '📊 Rendimiento' });
+        const fpsGraph = paneStats.addBinding(state, 'fps', { readonly: true, view: 'graph', label: 'FPS', interval: 100, bufferSize: 64 });
+
+        // Enviar datos al motor
+        function emitUI() {
+            window.dispatchEvent(new CustomEvent(EVT_UI, { detail: state }));
+        }
+
+        // Recibir FPS del motor para el gráfico
+        window.addEventListener(EVT_DATA, (e) => {
+            state.fps = e.detail.fps;
+        });
+
+        // Emitir estado inicial
+        emitUI();
+    </script>
+
+    <!-- ENGINE SCRIPT (WebGL2) -->
+    <script>
+        let gl, program, vao;
+        let uLocs = {};
+        let engineState = { scale: 0.5, rot: 0, speed: 1, color: [0, 0.8, 1], brightness: 1 };
+        let lastTime = 0;
+
+        // Escuchar a la UI
+        window.addEventListener(EVT_UI, (e) => {
+            const d = e.detail;
+            engineState.scale = d.scale;
+            engineState.speed = d.rotationSpeed;
+            engineState.color = [d.color.r, d.color.g, d.color.b];
+            engineState.brightness = d.brightness;
+        });
+
+        function init() {
+            const canvas = document.getElementById('webgl-canvas');
+            gl = canvas.getContext('webgl2');
+            if (!gl) return;
+
+            // Shaders (Triángulo que gira)
+            const vs = `#version 300 es
+                in vec2 pos; uniform float uScale, uRot;
+                void main() {
+                    mat2 m = mat2(cos(uRot), sin(uRot), -sin(uRot), cos(uRot));
+                    gl_Position = vec4((m * pos) * uScale, 0, 1);
+                }`;
+            const fs = `#version 300 es
+                precision highp float; uniform vec3 uCol; uniform float uBright; out vec4 c;
+                void main() { c = vec4(uCol * uBright, 1); }`;
+
+            program = createProgram(gl, vs, fs);
+            uLocs = {
+                scale: gl.getUniformLocation(program, 'uScale'),
+                rot: gl.getUniformLocation(program, 'uRot'),
+                col: gl.getUniformLocation(program, 'uCol'),
+                bright: gl.getUniformLocation(program, 'uBright')
+            };
+
+            const buf = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0.5, -0.5, -0.5, 0.5, -0.5]), gl.STATIC_DRAW);
+            vao = gl.createVertexArray();
+            gl.bindVertexArray(vao);
+            gl.enableVertexAttribArray(0);
+            gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+            requestAnimationFrame(render);
+        }
+
+        function render(now) {
+            const dt = (now - lastTime);
+            lastTime = now;
+            
+            // Lógica: Actualizar rotación y enviar FPS a la UI
+            engineState.rot += 0.001 * engineState.speed * dt;
+            window.dispatchEvent(new CustomEvent(EVT_DATA, { detail: { fps: 1000 / dt } }));
+
+            // Dibujado
+            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+            gl.clearColor(0.05, 0.05, 0.05, 1);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            gl.useProgram(program);
+            gl.uniform1f(uLocs.scale, engineState.scale);
+            gl.uniform1f(uLocs.rot, engineState.rot);
+            gl.uniform3fv(uLocs.col, engineState.color);
+            gl.uniform1f(uLocs.bright, engineState.brightness);
+
+            gl.bindVertexArray(vao);
+            gl.drawArrays(gl.TRIANGLES, 0, 3);
+            requestAnimationFrame(render);
+        }
+
+        function createProgram(gl, vsS, fsS) {
+            const s = (t, src) => {
+                const sh = gl.createShader(t); gl.shaderSource(sh, src); gl.compileShader(sh);
+                if(!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(sh));
+                return sh;
+            };
+            const p = gl.createProgram();
+            gl.attachShader(p, s(gl.VERTEX_SHADER, vsS));
+            gl.attachShader(p, s(gl.FRAGMENT_SHADER, fsS));
+            gl.linkProgram(p); return p;
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>

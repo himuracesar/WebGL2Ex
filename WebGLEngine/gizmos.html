@@ -39,6 +39,17 @@
 
         var projectMode = ProjectMode.Development;
 
+        var gui;
+        var transformX;
+        var transformY;
+        var transformZ;
+        var rotationX;
+        var rotationY;
+        var rotationZ;
+        var scaleX;
+        var scaleY;
+        var scaleZ;
+
         //------------- Meshes -------------
         var grid;
         var axisVao;
@@ -528,9 +539,11 @@
     
                 mat.set(finalMat);
             });
-            
+
             gl.bindBuffer(gl.ARRAY_BUFFER, transformBufferInst);
             gl.bufferData(gl.ARRAY_BUFFER, transformData, gl.DYNAMIC_DRAW);
+            
+            //return transformData;
         }
 
         //-------------------------------------------------------------------------------
@@ -582,6 +595,10 @@
             return Math.atan2(y, x);
         }
 
+        /**
+         * Computes the angle of rotation based on the mouse movement for the rotation gizmo. It calculates the point of intersection between the mouse ray and the plane defined by * the axis position and normal, then calculates the angle of this point with respect to the local axes of the plane.
+         * @return {float} The current angle of rotation in radians.
+         */
         function computeAngle(){
             if(axisClicked > -1 && currentAxisMode == AxisMode.Rotation){
                 const axisNormal = Axis[axisClicked]; 
@@ -602,6 +619,70 @@
         }
         //-------------------------------------------------------------------------------
 
+        function createGUI() {
+            gui = new dat.GUI();
+
+            //------------------ Transform ------------------
+            var folderTransform = gui.addFolder('Postition');
+            var folderRotation = gui.addFolder('Rotation');
+            var folderScale = gui.addFolder('Scale');
+
+            var transformProps = {
+                x : axisPosition[0],
+                y : axisPosition[1],
+                z : axisPosition[2]
+            };
+
+            var rotationProps = {
+                x : axisRotation[0],
+                y : axisRotation[1],
+                z : axisRotation[2]
+            };
+
+            var scaleProps = {
+                x : axisScale[0],
+                y : axisScale[1],
+                z : axisScale[2]
+            };
+
+            transformX = folderTransform.add(transformProps, 'x').step(0.0001).onChange(function(value) {
+                axisPosition[0] = parseFloat(value);
+            });
+
+            transformY = folderTransform.add(transformProps, 'y').step(0.0001).onChange(function(value) {
+                axisPosition[1] = parseFloat(value);
+            });
+
+            transformZ = folderTransform.add(transformProps, 'z').step(0.0001).onChange(function(value) {
+                axisPosition[2] = parseFloat(value);
+            });
+
+            rotationX = folderRotation.add(rotationProps, 'x').step(0.0001).onChange(function(value) {
+                axisRotation[0] = parseFloat(value);
+            });
+
+            rotationY = folderRotation.add(rotationProps, 'y').step(0.0001).onChange(function(value) {
+                axisRotation[1] = parseFloat(value);
+            });
+
+            rotationZ = folderRotation.add(rotationProps, 'z').step(0.0001).onChange(function(value) {
+                axisRotation[2] = parseFloat(value);
+            });
+
+            scaleX = folderScale.add(scaleProps, 'x').step(0.0001).onChange(function(value) {
+                axisScale[0] = parseFloat(value);
+            });
+
+            scaleY = folderScale.add(scaleProps, 'y').step(0.0001).onChange(function(value) {
+                axisScale[1] = parseFloat(value);
+            });
+
+            scaleZ = folderScale.add(scaleProps, 'z').step(0.0001).onChange(function(value) {
+                axisScale[2] = parseFloat(value);
+            });
+
+        }
+
         function init(){
             canvas = document.getElementById("webGLcanvas");
 
@@ -615,6 +696,8 @@
             };
 
             gl = webGLengine.initWebGL(canvas, descriptor);
+
+            //webGLengine.autoResizeCanvas(canvas);
 
             //webGLengine.auditStencilBuffer(gl);
 
@@ -654,24 +737,72 @@
             gl.bindBuffer(gl.ARRAY_BUFFER, axisVbo);
             gl.bufferData(gl.ARRAY_BUFFER, axisGeometry.vertices, gl.STATIC_DRAW);
 
+            //axisPipeline
+            gl.vertexAttribPointer(
+                axisPipeline.getAttributeLocation("in_position"), 
+                3, 
+                gl.FLOAT, 
+                gl.FALSE, 
+                0, //3 * Float32Array.BYTES_PER_ELEMENT, 
+                0
+            );
+
+            gl.enableVertexAttribArray(axisPipeline.getAttributeLocation("in_position"));
+
+            //axisIdPipeline
+            gl.vertexAttribPointer(
+                axisIdPipeline.getAttributeLocation("in_position"), 
+                3, 
+                gl.FLOAT, 
+                gl.FALSE, 
+                3 * Float32Array.BYTES_PER_ELEMENT, 
+                0
+            );
+
+            gl.enableVertexAttribArray(axisIdPipeline.getAttributeLocation("in_position"));
+
             axisIbo = gl.createBuffer();
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, axisIbo);
             gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, axisGeometry.indices, gl.STATIC_DRAW);
 
-            gl.bindBuffer(gl.ARRAY_BUFFER, null);
-            gl.bindVertexArray(null);
-
-            /*******************************
+            /*************************************************************************************************
              * Instances
-             * *******************************/
-            /*var transformArray = new Float32Array(16 * axisGeometry.numVertices); // 16 floats per matrix
-            for(let i = 0; i < axisGeometry.numVertices; i++){
-                transformArray.set(m4.identity(), i * 16);
-            }*/
-
+             * ***********************************************************************************************/
+            
             transformBufferInst = webGLengine.createBuffer(gl);
-
             updateAxisData();
+
+            gl.vertexAttribPointer(axisPipeline.getAttributeLocation("in_mModel"), 4, gl.FLOAT, gl.FALSE, 16 * Float32Array.BYTES_PER_ELEMENT, 0);
+            gl.vertexAttribPointer(axisPipeline.getAttributeLocation("in_mModel") + 1, 4, gl.FLOAT, gl.FALSE, 16 * Float32Array.BYTES_PER_ELEMENT, 4 * Float32Array.BYTES_PER_ELEMENT);
+            gl.vertexAttribPointer(axisPipeline.getAttributeLocation("in_mModel") + 2, 4, gl.FLOAT, gl.FALSE, 16 * Float32Array.BYTES_PER_ELEMENT, 8 * Float32Array.BYTES_PER_ELEMENT);
+            gl.vertexAttribPointer(axisPipeline.getAttributeLocation("in_mModel") + 3, 4, gl.FLOAT, gl.FALSE, 16 * Float32Array.BYTES_PER_ELEMENT, 12 * Float32Array.BYTES_PER_ELEMENT);
+
+            //axisPipeline
+            gl.enableVertexAttribArray(axisPipeline.getAttributeLocation("in_mModel"));
+            gl.enableVertexAttribArray(axisPipeline.getAttributeLocation("in_mModel") + 1);
+            gl.enableVertexAttribArray(axisPipeline.getAttributeLocation("in_mModel") + 2);
+            gl.enableVertexAttribArray(axisPipeline.getAttributeLocation("in_mModel") + 3);
+
+            gl.vertexAttribDivisor(axisPipeline.getAttributeLocation("in_mModel"), 1);
+            gl.vertexAttribDivisor(axisPipeline.getAttributeLocation("in_mModel") + 1, 1);
+            gl.vertexAttribDivisor(axisPipeline.getAttributeLocation("in_mModel") + 2, 1);
+            gl.vertexAttribDivisor(axisPipeline.getAttributeLocation("in_mModel") + 3, 1);
+
+            //-- axisIdPipeline
+            gl.vertexAttribPointer(axisIdPipeline.getAttributeLocation("in_mModel"), 4, gl.FLOAT, gl.FALSE, 16 * Float32Array.BYTES_PER_ELEMENT, 0);
+            gl.vertexAttribPointer(axisIdPipeline.getAttributeLocation("in_mModel") + 1, 4, gl.FLOAT, gl.FALSE, 16 * Float32Array.BYTES_PER_ELEMENT, 4 * Float32Array.BYTES_PER_ELEMENT);
+            gl.vertexAttribPointer(axisIdPipeline.getAttributeLocation("in_mModel") + 2, 4, gl.FLOAT, gl.FALSE, 16 * Float32Array.BYTES_PER_ELEMENT, 8 * Float32Array.BYTES_PER_ELEMENT);
+            gl.vertexAttribPointer(axisIdPipeline.getAttributeLocation("in_mModel") + 3, 4, gl.FLOAT, gl.FALSE, 16 * Float32Array.BYTES_PER_ELEMENT, 12 * Float32Array.BYTES_PER_ELEMENT);
+
+            gl.enableVertexAttribArray(axisIdPipeline.getAttributeLocation("in_mModel"));
+            gl.enableVertexAttribArray(axisIdPipeline.getAttributeLocation("in_mModel") + 1);
+            gl.enableVertexAttribArray(axisIdPipeline.getAttributeLocation("in_mModel") + 2);
+            gl.enableVertexAttribArray(axisIdPipeline.getAttributeLocation("in_mModel") + 3);
+
+            gl.vertexAttribDivisor(axisIdPipeline.getAttributeLocation("in_mModel"), 1);
+            gl.vertexAttribDivisor(axisIdPipeline.getAttributeLocation("in_mModel") + 1, 1);
+            gl.vertexAttribDivisor(axisIdPipeline.getAttributeLocation("in_mModel") + 2, 1);
+            gl.vertexAttribDivisor(axisIdPipeline.getAttributeLocation("in_mModel") + 3, 1);
 
             // color buffer
             var colors = [
@@ -683,11 +814,46 @@
             gl.bindBuffer(gl.ARRAY_BUFFER, colorVbo);
             gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
 
+            //axisPipeline
+            gl.vertexAttribPointer(
+                axisPipeline.getAttributeLocation("in_color"), 
+                4, 
+                gl.FLOAT, 
+                gl.FALSE, 
+                4 * Float32Array.BYTES_PER_ELEMENT, 
+                0
+            );
+
+            gl.enableVertexAttribArray(axisPipeline.getAttributeLocation("in_color"));
+
+            gl.vertexAttribDivisor(axisPipeline.getAttributeLocation("in_color"), 1);
+
+            //axisIdPipeline
+            gl.vertexAttribPointer(
+                axisIdPipeline.getAttributeLocation("in_color"), 
+                4, 
+                gl.FLOAT, 
+                gl.FALSE, 
+                4 * Float32Array.BYTES_PER_ELEMENT, 
+                0
+            );
+
+            gl.enableVertexAttribArray(axisIdPipeline.getAttributeLocation("in_color"));
+
+            gl.vertexAttribDivisor(axisIdPipeline.getAttributeLocation("in_color"), 1);
+
+            //gl.bindBuffer(gl.ARRAY_BUFFER, null);
+            gl.bindVertexArray(null);
+
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
             renderTarget = new RenderTarget(canvas.width, canvas.height, RenderTargetEnums.Use.Albedo8);
 
             screenOff = new Screen(300, 250);
             screenOff.setPosition([10.0, 10.0, 0.0]);
             screenOff.setVisible(true);
+
+            createGUI();
 
             updateAndRender();
         }
@@ -819,13 +985,41 @@
 
             screenOff.setTexture(renderTarget.getTexture(0));
             screenOff.update();
+
+            /*transformProps.x = axisPosition[0];
+            transformProps.y = axisPosition[1];
+            transformProps.z = axisPosition[2];*/
+
+            transformX.setValue(axisPosition[0]);
+            transformY.setValue(axisPosition[1]);
+            transformZ.setValue(axisPosition[2]);
+            rotationX.setValue(axisRotation[0]);
+            rotationY.setValue(axisRotation[1]);
+            rotationZ.setValue(axisRotation[2]);
+            scaleX.setValue(axisScale[0]);
+            scaleY.setValue(axisScale[1]);
+            scaleZ.setValue(axisScale[2]);
+
+            /*for (var i in gui.__controllers) {
+                gui.__controllers[i].updateDisplay();
+            }*/
+
+            //gui.updateDisplay();
+            /*for (var i = 0; i < Object.keys(gui.__folders).length; i++) {
+                var key = Object.keys(gui.__folders)[i];
+                for (var j = 0; j < gui.__folders[key].__controllers.length; j++ )
+                {
+                    gui.__folders[key].__controllers[j].updateDisplay();
+                }
+            }*/
+
+            //transformPropsX.updateDisplay();
         }   
 
         function render(){
             if(mouse.down && axisClicked == -1){
                 renderTarget.bind();
                 gl.viewport(0, 0, renderTarget.getWidth(), renderTarget.getHeight());
-                //gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
                 gl.depthMask(true);
                 gl.clearColor(0.0, 0.0, 0.0, 1.0);
                 gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -838,56 +1032,8 @@
 
                 gl.bindVertexArray(axisVao);
 
-                gl.bindBuffer(gl.ARRAY_BUFFER, transformBufferInst);
-
-                gl.vertexAttribPointer(axisIdPipeline.getAttributeLocation("in_mModel"), 4, gl.FLOAT, gl.FALSE, 16 * Float32Array.BYTES_PER_ELEMENT, 0);
-                gl.vertexAttribPointer(axisIdPipeline.getAttributeLocation("in_mModel") + 1, 4, gl.FLOAT, gl.FALSE, 16 * Float32Array.BYTES_PER_ELEMENT, 4 * Float32Array.BYTES_PER_ELEMENT);
-                gl.vertexAttribPointer(axisIdPipeline.getAttributeLocation("in_mModel") + 2, 4, gl.FLOAT, gl.FALSE, 16 * Float32Array.BYTES_PER_ELEMENT, 8 * Float32Array.BYTES_PER_ELEMENT);
-                gl.vertexAttribPointer(axisIdPipeline.getAttributeLocation("in_mModel") + 3, 4, gl.FLOAT, gl.FALSE, 16 * Float32Array.BYTES_PER_ELEMENT, 12 * Float32Array.BYTES_PER_ELEMENT);
-
-                gl.enableVertexAttribArray(axisIdPipeline.getAttributeLocation("in_mModel"));
-                gl.enableVertexAttribArray(axisIdPipeline.getAttributeLocation("in_mModel") + 1);
-                gl.enableVertexAttribArray(axisIdPipeline.getAttributeLocation("in_mModel") + 2);
-                gl.enableVertexAttribArray(axisIdPipeline.getAttributeLocation("in_mModel") + 3);
-
-                gl.vertexAttribDivisor(axisIdPipeline.getAttributeLocation("in_mModel"), 1);
-                gl.vertexAttribDivisor(axisIdPipeline.getAttributeLocation("in_mModel") + 1, 1);
-                gl.vertexAttribDivisor(axisIdPipeline.getAttributeLocation("in_mModel") + 2, 1);
-                gl.vertexAttribDivisor(axisIdPipeline.getAttributeLocation("in_mModel") + 3, 1);
-
-                gl.bindBuffer(gl.ARRAY_BUFFER, axisVbo);
-
-                gl.vertexAttribPointer(
-                    axisIdPipeline.getAttributeLocation("in_position"), 
-                    3, 
-                    gl.FLOAT, 
-                    gl.FALSE, 
-                    3 * Float32Array.BYTES_PER_ELEMENT, 
-                    0
-                );
-
-                gl.enableVertexAttribArray(axisIdPipeline.getAttributeLocation("in_position"));
-
-                gl.bindBuffer(gl.ARRAY_BUFFER, colorVbo);
-
-                gl.vertexAttribPointer(
-                    axisIdPipeline.getAttributeLocation("in_color"), 
-                    4, 
-                    gl.FLOAT, 
-                    gl.FALSE, 
-                    4 * Float32Array.BYTES_PER_ELEMENT, 
-                    0
-                );
-
-                gl.enableVertexAttribArray(axisIdPipeline.getAttributeLocation("in_color"));
-
-                gl.vertexAttribDivisor(axisIdPipeline.getAttributeLocation("in_color"), 1);
-
                 axisIdPipeline.setUniformMatrix4x4("u_mProj", camera.getProjectionMatrix());
                 axisIdPipeline.setUniformMatrix4x4("u_mView", camera.getViewMatrix());
-
-                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, axisIbo);
-                //gl.drawElementsInstanced(gl.TRIANGLES, numAxisIndices, gl.UNSIGNED_SHORT, 0, 3);
 
                 if(currentAxisMode == AxisMode.Translation)
                     gl.drawElementsInstanced(gl.TRIANGLES, numIndicesAxisTranslation, gl.UNSIGNED_SHORT, 0, 3);
@@ -896,12 +1042,10 @@
                 else if(currentAxisMode == AxisMode.Rotation)
                     gl.drawElementsInstanced(gl.TRIANGLES, numIndicesAxisRotation, gl.UNSIGNED_SHORT, 2 * (numIndicesAxisTranslation + numIndicesAxisScale), 3);
 
-                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
-                gl.bindBuffer(gl.ARRAY_BUFFER, null);
                 gl.bindVertexArray(null);
 
                 const pixel = new Uint8Array(4);
-                
+
                 // Invert Y because WebGL starts from the bottom and the DOM from the top
                 gl.readPixels(mouse.x, gl.canvas.height - mouse.y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
                 
@@ -956,56 +1100,10 @@
 
             gl.bindVertexArray(axisVao);
 
-            gl.bindBuffer(gl.ARRAY_BUFFER, transformBufferInst);
-
-            gl.vertexAttribPointer(axisPipeline.getAttributeLocation("in_mModel"), 4, gl.FLOAT, gl.FALSE, 16 * Float32Array.BYTES_PER_ELEMENT, 0);
-            gl.vertexAttribPointer(axisPipeline.getAttributeLocation("in_mModel") + 1, 4, gl.FLOAT, gl.FALSE, 16 * Float32Array.BYTES_PER_ELEMENT, 4 * Float32Array.BYTES_PER_ELEMENT);
-            gl.vertexAttribPointer(axisPipeline.getAttributeLocation("in_mModel") + 2, 4, gl.FLOAT, gl.FALSE, 16 * Float32Array.BYTES_PER_ELEMENT, 8 * Float32Array.BYTES_PER_ELEMENT);
-            gl.vertexAttribPointer(axisPipeline.getAttributeLocation("in_mModel") + 3, 4, gl.FLOAT, gl.FALSE, 16 * Float32Array.BYTES_PER_ELEMENT, 12 * Float32Array.BYTES_PER_ELEMENT);
-
-            gl.enableVertexAttribArray(axisPipeline.getAttributeLocation("in_mModel"));
-            gl.enableVertexAttribArray(axisPipeline.getAttributeLocation("in_mModel") + 1);
-            gl.enableVertexAttribArray(axisPipeline.getAttributeLocation("in_mModel") + 2);
-            gl.enableVertexAttribArray(axisPipeline.getAttributeLocation("in_mModel") + 3);
-
-            gl.vertexAttribDivisor(axisPipeline.getAttributeLocation("in_mModel"), 1);
-            gl.vertexAttribDivisor(axisPipeline.getAttributeLocation("in_mModel") + 1, 1);
-            gl.vertexAttribDivisor(axisPipeline.getAttributeLocation("in_mModel") + 2, 1);
-            gl.vertexAttribDivisor(axisPipeline.getAttributeLocation("in_mModel") + 3, 1);
-
-            gl.bindBuffer(gl.ARRAY_BUFFER, colorVbo);
-
-            gl.vertexAttribPointer(
-                axisPipeline.getAttributeLocation("in_color"), 
-                4, 
-                gl.FLOAT, 
-                gl.FALSE, 
-                4 * Float32Array.BYTES_PER_ELEMENT, 
-                0
-            );
-
-            gl.enableVertexAttribArray(axisPipeline.getAttributeLocation("in_color"));
-
-            gl.vertexAttribDivisor(axisPipeline.getAttributeLocation("in_color"), 1);
-
-            gl.bindBuffer(gl.ARRAY_BUFFER, axisVbo);
-
-            gl.vertexAttribPointer(
-                axisPipeline.getAttributeLocation("in_position"), 
-                3, 
-                gl.FLOAT, 
-                gl.FALSE, 
-                0, //3 * Float32Array.BYTES_PER_ELEMENT, 
-                0
-            );
-
-            //gl.enableVertexAttribArray(axisPipeline.getAttributeLocation("in_position"));
-
             axisPipeline.setUniformMatrix4x4("u_mProj", camera.getProjectionMatrix());
             axisPipeline.setUniformMatrix4x4("u_mView", camera.getViewMatrix());
             axisPipeline.setUniformInt("u_highlightAxis", axisClicked);
 
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, axisIbo);
             if(currentAxisMode == AxisMode.Translation)
                 gl.drawElementsInstanced(gl.TRIANGLES, numIndicesAxisTranslation, gl.UNSIGNED_SHORT, 0, 3);
             else if(currentAxisMode == AxisMode.Scale)
@@ -1013,10 +1111,6 @@
             else if(currentAxisMode == AxisMode.Rotation)
                 gl.drawElementsInstanced(gl.TRIANGLES, numIndicesAxisRotation, gl.UNSIGNED_SHORT, 2 * (numIndicesAxisTranslation + numIndicesAxisScale), 3);
 
-            //gl.drawElementsInstanced(gl.TRIANGLES, numAxisIndices, gl.UNSIGNED_SHORT, 0, 3);
-
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
-            gl.bindBuffer(gl.ARRAY_BUFFER, null);
             gl.bindVertexArray(null);
             
             axisPipeline.unuse();

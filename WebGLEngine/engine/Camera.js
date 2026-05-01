@@ -56,6 +56,22 @@ class Camera {
 
         return m4.inverse(mView);
     }
+
+    /**
+     * Get the near plane
+     * @returns {float} near plane
+     */
+    getNearPlane(){
+        return this.nearPlane;
+    }
+
+    /**
+     * Get the far plane
+     * @returns {float} far plane
+     */
+    getFarPlane(){
+        return this.farPlane;
+    }
     
     /**
      * Get the position
@@ -79,6 +95,14 @@ class Camera {
      */
     setLookAt(look){
         this.target = look;
+    }
+
+    /**
+     * Get the speed of the camera to move
+     * @returns {float} speed
+     */
+    getSpeed(){
+        return this.speed;
     }
 
     /**

@@ -1,0 +1,61 @@
+<html>
+<head>
+    <script>
+        // file1.js: Definimos el estado global
+        window.appState = {
+            color: {r: 0, g: 0.5, b: 1},
+            posX: 0,
+            animate: false
+        };
+    </script>
+
+    <script type="module">
+        // UI con Tweakpane
+        //import { Pane } from 'https://jsdelivr.net';
+        import {Pane} from '../../WebGLEngine/engine/lib/tweakpane-4.0.5.js';
+
+        const pane = new Pane({ title: 'Configuración' });
+
+        // Vinculamos Tweakpane al objeto global window.appState
+        pane.addBinding(window.appState, 'color', { color: {type: 'float'} });
+        pane.addBinding(window.appState, 'posX', { min: -1, max: 1 });
+        pane.addBinding(window.appState, 'animate');
+
+        // Hacemos que el panel sea accesible globalmente para poder refrescarlo
+        window.gui = pane;
+    </script>
+</head>
+
+<body onload="init();">
+    <canvas id="webGLcanvas" width="1300" height="900"></canvas>
+    
+    <script type="text/javascript">
+        let gl;
+        function init() {
+            const canvas = document.getElementById('webGLcanvas');
+            gl = canvas.getContext('webgl2');
+            render();
+        }
+
+        function render() {
+            // 1. Lógica inversa: Si el código cambia el valor (animación)
+            if (window.appState.animate) {
+                window.appState.posX = Math.sin(performance.now() * 0.002);
+                
+                // 2. Comunicar de vuelta a la UI:
+                // Verificamos si window.gui ya cargó (porque los módulos son asíncronos)
+                if (window.gui) {
+                    window.gui.refresh();
+                }
+            }
+
+            // 3. Usar los valores de la UI en WebGL
+            const c = window.appState.color;
+            gl.clearColor(c.r, c.g, c.b, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            requestAnimationFrame(render);
+        }
+    </script>
+</body>
+</html>

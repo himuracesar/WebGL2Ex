@@ -1,0 +1,68 @@
+<html>
+<head>
+    <!-- Script de configuración inicial (opcional) -->
+    <script>
+        // Definimos nombres de eventos constantes para evitar errores de dedo
+        const EVT_UI_UPDATED = 'ui-params-changed';
+        const EVT_ENGINE_UPDATED = 'engine-val-changed';
+    </script>
+
+    <!-- UI con Tweakpane (Módulo) -->
+    <script type="module">
+        //import { Pane } from 'https://jsdelivr.net';
+        import {Pane} from '../../WebGLEngine/engine/lib/tweakpane-4.0.5.js';
+
+        const params = { posX: 0, color: {r: 1, g: 0, b: 0} };
+        const pane = new Pane();
+
+        // 1. UI -> WEBGL: Emitir evento cuando el usuario mueve algo
+        pane.addBinding(params, 'posX', {min: -1, max: 1}).on('change', (ev) => {
+            window.dispatchEvent(new CustomEvent(EVT_UI_UPDATED, { detail: params }));
+        });
+
+        // 2. WEBGL -> UI: Escuchar cuando el motor cambia valores (animación)
+        window.addEventListener(EVT_ENGINE_UPDATED, (e) => {
+            params.posX = e.detail.posX;
+            pane.refresh(); // Actualiza visualmente el slider
+        });
+    </script>
+</head>
+
+<body onload="init();">
+    <canvas id="webGLcanvas" width="600" height="400"></canvas>
+    
+    <script type="text/javascript">
+        let currentPosX = 0;
+        let isAnimating = true;
+
+        // 3. WEBGL: Escuchar cambios de la UI
+        window.addEventListener(EVT_UI_UPDATED, (e) => {
+            currentPosX = e.detail.posX;
+            console.log("WebGL recibió:", currentPosX);
+        });
+
+        function init() {
+            render();
+        }
+
+        function render() {
+            if (isAnimating) {
+                // Lógica interna: el motor calcula la posición
+                currentPosX = Math.sin(performance.now() * 0.002);
+
+                // 4. WEBGL -> UI: Avisar a Tweakpane del nuevo valor
+                window.dispatchEvent(new CustomEvent(EVT_ENGINE_UPDATED, { 
+                    detail: { posX: currentPosX } 
+                }));
+            }
+
+            // Aquí iría tu código de dibujado WebGL usando currentPosX
+            draw(currentPosX);
+
+            requestAnimationFrame(render);
+        }
+
+        function draw(x) { /* ... lógica de gl.drawArrays ... */ }
+    </script>
+</body>
+</html>

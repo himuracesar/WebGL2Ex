@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<body>
+  <script type="module">
+    //import {Pane} from 'https://cdn.jsdelivr.net/npm/tweakpane@4.0.5/dist/tweakpane.min.js';
+    import {Pane} from '../../WebGLEngine/engine/lib/tweakpane-4.0.5.js';
+
+    // 1. Define the object you want to tweak
+    const PARAMS = {
+      factor: 123,
+      title: 'hello',
+      color: '#ff0055',
+      active: true,
+    };
+
+    // 2. Create the pane
+    const pane = new Pane();
+
+    // 3. Add input bindings
+    pane.addBinding(PARAMS, 'factor', {
+      min: 0,
+      max: 1000,
+    });
+    
+    pane.addBinding(PARAMS, 'title');
+    pane.addBinding(PARAMS, 'color');
+    pane.addBinding(PARAMS, 'active');
+
+    // 4. Listen for changes
+    pane.on('change', (ev) => {
+      console.log('Changed:', ev.value);
+    });
+  </script>
+</body>
+</html>
